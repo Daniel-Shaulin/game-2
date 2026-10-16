@@ -73,6 +73,7 @@ func _run() -> void:
 	main.dialogue.handle_key(KEY_E)
 	main.dialogue.handle_key(KEY_E)
 	await wait(0.2)
+	await _teste_inventario()
 	main.world.player_pos = main.world.start_pos
 	key(KEY_D, true)
 	await wait(0.8)
@@ -136,10 +137,12 @@ func _run() -> void:
 		t += 0.5
 	print("depois da luta 2: estado=", main.state, " vida=", main.hp, " dinheiro=", main.money)
 	# sinal / save
-	main.world.player_pos = main.world.signals[0] + Vector2(0.8, 0)
+	main.world.player_pos = main.world.signals[0] + Vector2(0, 0.3)
 	await wait(0.3)
 	main.world.handle_key(KEY_E)
-	print("save existe: ", main.has_save(), " mensagens: ", main.messages.size())
+	print("save existe: ", main.has_save(), " mensagens: ", main.messages.size(), " estado: ", main.state)
+	var salvo = JSON.parse_string(FileAccess.open(main.SAVE_PATH, FileAccess.READ).get_as_text())
+	print("save tem inventário: ", salvo.get("inventory"), " baú: ", salvo.get("chest"))
 	await wait(0.3)
 	await shot("08_sinal")
 	# esconder no armário
@@ -158,6 +161,66 @@ func _run() -> void:
 	await wait(0.3)
 	await shot("10_mensagem")
 	quit()
+
+
+# Pega item do chão, testa o inventário cheio, o baú e o curativo pelo celular.
+func _teste_inventario() -> void:
+	var wd = main.world
+	wd.player_pos = Vector2(5.5, 8.5) + Vector2(0.4, 0.2)
+	wd.invuln = 3.0
+	await wait(0.4)
+	await shot("02f_item_no_chao")
+	wd.handle_key(KEY_E)
+	print("pegou item: ", main.inventory, " dica: ", wd.hint)
+	main.inventory = ["curativo", "cha", "amuleto", "curativo", "cha", "amuleto"]
+	wd.player_pos = Vector2(21.5, 12.5) + Vector2(-0.4, 0.2)
+	await wait(0.3)
+	wd.handle_key(KEY_E)
+	await wait(0.2)
+	await shot("02g_inventario_cheio")
+	print("inventário cheio: ", main.inventory.size(), " item ainda no chão: ", wd.pickups.size())
+	# baú
+	wd.player_pos = Vector2(21.5, 8.4)
+	await wait(0.3)
+	print("dica perto do baú: ", wd.hint)
+	wd.handle_key(KEY_E)
+	print("baú aberto: ", main.state)
+	main.bau.handle_key(KEY_E)
+	main.bau.handle_key(KEY_S)
+	main.bau.handle_key(KEY_E)
+	await wait(0.2)
+	main.bau.handle_key(KEY_D)
+	await wait(0.2)
+	await shot("02h_bau")
+	main.bau.handle_key(KEY_E)
+	print("inventário: ", main.inventory, " baú: ", main.chest)
+	main.bau.handle_key(KEY_A)
+	await wait(0.2)
+	await shot("02i_bau_inventario")
+	main.bau.handle_key(KEY_ESCAPE)
+	print("baú fechado: ", main.state)
+	# curativo pelo celular
+	main.hp = 50.0
+	main._unhandled_input(_key_event(KEY_TAB))
+	await wait(0.4)
+	main.phone.handle_key(KEY_S)
+	main.phone.handle_key(KEY_S)
+	main.phone.handle_key(KEY_ENTER)
+	await wait(0.1)
+	await shot("02j_celular_inventario")
+	var cur: int = main.inventory.find("curativo")
+	for i in cur:
+		main.phone.handle_key(KEY_S)
+	main.phone.handle_key(KEY_ENTER)
+	await wait(0.1)
+	await shot("02k_item")
+	main.phone.handle_key(KEY_ENTER)
+	await wait(0.1)
+	await shot("02l_usou_curativo")
+	print("vida depois do curativo: ", main.hp, " inventário: ", main.inventory)
+	main.phone.handle_key(KEY_TAB)
+	await wait(0.5)
+	main.hp = main.MAX_HP
 
 
 func _key_event(k: int) -> InputEventKey:

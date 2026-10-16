@@ -3,6 +3,7 @@ extends RefCounted
 
 # '#' parede  '~' água  'W' armário (esconderijo)  'S' ponto de sinal (save)
 # '$' dinheiro  'P' início da Branca  'a'/'b' inimigos  'N' personagem para conversar  '.' chão
+# 'B' baú (perto do sinal)  '1' '2' '3' itens no chão (ver ITENS_NO_MAPA)
 const MAP := [
 	"########################",
 	"#~~~~~~~~~~~~~~~~~~~~~~#",
@@ -11,15 +12,15 @@ const MAP := [
 	"#~~~~~~.......~~~~~~~~~#",
 	"#~~~~.....P.....~~~~~~##",
 	"#~~.........N...~~~~~~##",
-	"#.......##..........S.##",
-	"#.......##...$........##",
+	"#.......##..........SB##",
+	"#....1..##...$........##",
 	"#..W..........a.......##",
 	"#.............##......##",
 	"#.....$.......##.......#",
-	"#......................#",
+	"#....................2.#",
 	"######..########...W...#",
-	"#.......#......#.......#",
-	"#...$...#..$...#...b...#",
+	"#.......#...3..#.......#",
+	"#.1.$...#..$...#...b...#",
 	"#..W.......$...........#",
 	"########################",
 ]
@@ -34,6 +35,20 @@ const PATROLS := {
 const NPCS := {
 	"N": {"nome": "Figura de teste", "dialogo": "npc_teste"},
 }
+
+# Inventário: quantos itens a Branca carrega. O resto fica no baú dos pontos de sinal.
+const INV_SLOTS := 6
+
+# Itens (provisório). "curar" diz quanto de vida o item recupera ao ser usado pelo celular.
+# Os efeitos no combate (amuleto e chá) entram no passo 7 do plano.
+const ITENS := {
+	"curativo": {"nome": "Curativo", "descricao": "Atadura para fechar feridas. Recupera 35 de vida.", "curar": 35.0},
+	"cha": {"nome": "Chá", "descricao": "Deixa as notas mais lentas no combate."},
+	"amuleto": {"nome": "Amuleto", "descricao": "Absorve três erros no combate."},
+}
+
+# Itens no chão do mapa de teste (número no mapa -> item).
+const ITENS_NO_MAPA := {"1": "curativo", "2": "cha", "3": "amuleto"}
 
 const ENEMIES := {
 	"a": {

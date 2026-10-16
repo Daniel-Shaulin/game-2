@@ -1,12 +1,16 @@
 # Celular flip antigo (sem câmera) usado como menu. O jogo pausa enquanto ele está aberto.
 extends Control
 
+const Data := preload("res://scripts/data.gd")
+
 const MENU := ["Mensagens", "Notas", "Inventário", "Configurações"]
 
 var main
 var page := "menu"
 var sel := 0
-var reading := -1
+var reading := -1  # mensagem aberta (Mensagens) ou item aberto (Inventário)
+var notice := ""
+var notice_t := 0.0
 var slide := 0.0  # 0 = guardado, 1 = na mão (animado pelo main)
 
 
@@ -18,10 +22,12 @@ func open() -> void:
 	page = "menu"
 	sel = 0
 	reading = -1
+	notice = ""
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if visible:
+		notice_t = maxf(notice_t - delta, 0.0)
 		queue_redraw()
 
 
@@ -34,6 +40,7 @@ func _count() -> int:
 	match page:
 		"menu": return MENU.size()
 		"Mensagens": return maxi(main.messages.size(), 1)
+		"Inventário": return Data.INV_SLOTS
 		"Configurações": return 3
 	return 1
 
@@ -52,6 +59,13 @@ func handle_key(k: int) -> void:
 		else:
 			_close()
 		return
+	if reading >= 0:
+		if page == "Inventário" and k in [KEY_ENTER, KEY_KP_ENTER, KEY_E, KEY_SPACE]:
+			notice = main.use_item(reading)
+			notice_t = 2.5
+			if reading >= main.inventory.size() or notice.begins_with("Usou"):
+				reading = -1
+		return
 	if k == KEY_W or k == KEY_UP:
 		sel = (sel - 1 + _count()) % _count()
 		main.play_sfx("clique")
@@ -69,6 +83,8 @@ func handle_key(k: int) -> void:
 		elif page == "Mensagens" and reading < 0 and not main.messages.is_empty():
 			reading = sel
 			main.messages[sel]["lida"] = true
+		elif page == "Inventário" and sel < main.inventory.size():
+			reading = sel
 		elif page == "Configurações":
 			if sel == 1:
 				var fs := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
@@ -109,6 +125,17 @@ func _draw() -> void:
 		draw_rect(Rect2(x + b * 5, y - hb, 3, hb), ink if b < bars else Color(ink, 0.2))
 	draw_string(f, Vector2(lcd.position.x, y), "E-317", HORIZONTAL_ALIGNMENT_RIGHT, 230, 13, ink)
 	y += 22
+	if reading >= 0 and page == "Inventário":
+		var it: Dictionary = Data.ITENS[main.inventory[reading]]
+		draw_string(f, Vector2(x, y), it.nome, HORIZONTAL_ALIGNMENT_LEFT, 220, 16, ink)
+		y += 8
+		draw_line(Vector2(x, y), Vector2(x + 220, y), ink, 1.0)
+		y += 20
+		draw_multiline_string(f, Vector2(x, y), it.descricao, HORIZONTAL_ALIGNMENT_LEFT, 220, 14, -1, ink)
+		if notice_t > 0.0:
+			draw_string(f, Vector2(x, lcd.end.y - 28), notice, HORIZONTAL_ALIGNMENT_LEFT, 220, 13, ink)
+		draw_string(f, Vector2(x, lcd.end.y - 8), ("Enter usar   " if it.has("curar") else "") + "Esc voltar", HORIZONTAL_ALIGNMENT_LEFT, 220, 12, ink)
+		return
 	if reading >= 0:
 		var m: Dictionary = main.messages[reading]
 		draw_string(f, Vector2(x, y), "De: " + m.de, HORIZONTAL_ALIGNMENT_LEFT, 220, 14, ink)
@@ -117,6 +144,8 @@ func _draw() -> void:
 		draw_string(f, Vector2(x, lcd.end.y - 8), "Esc voltar", HORIZONTAL_ALIGNMENT_LEFT, 220, 12, ink)
 		return
 	draw_string(f, Vector2(x, y), page if page != "menu" else "Menu", HORIZONTAL_ALIGNMENT_LEFT, 220, 16, ink)
+	if page == "Inventário":
+		draw_string(f, Vector2(x, y), "$ %d" % main.money, HORIZONTAL_ALIGNMENT_RIGHT, 220, 14, ink)
 	y += 8
 	draw_line(Vector2(x, y), Vector2(x + 220, y), ink, 1.0)
 	y += 22
@@ -131,12 +160,14 @@ func _draw() -> void:
 				for m in main.messages:
 					lines.append(("* " if not m.get("lida", false) else "  ") + m.de + " " + m.titulo)
 		"Notas":
-			lines = ["WASD: andar", "Shift: correr", "Espaço: lanterna", "  (atordoa, gasta estamina)", "E: esconder / sinal", "Combate: D F J K", "  e clique nos círculos"]
+			lines = ["WASD: andar", "Shift: correr", "Espaço: lanterna", "  (atordoa, gasta estamina)", "E: interagir", "Combate: D F J K", "  e clique nos círculos"]
 		"Inventário":
-			lines = ["Dinheiro: %d" % main.money, "", "(vazio)"]
+			for i in Data.INV_SLOTS:
+				lines.append("%d  %s" % [i + 1, Data.ITENS[main.inventory[i]].nome if i < main.inventory.size() else "-"])
 		"Configurações":
 			lines = ["Volume: < %d%% >" % int(round(main.volume * 100)), "Tela cheia", "Sair do jogo"]
-	var selectable := page in ["menu", "Mensagens", "Configurações"]
+	var selectable := page in ["menu", "Mensagens", "Inventário", "Configurações"]
+	var step := 20.0 if page == "Inventário" else 22.0
 	for i in lines.size():
 		var line: String = lines[i]
 		if selectable and i == sel:
@@ -144,5 +175,8 @@ func _draw() -> void:
 			draw_string(f, Vector2(x, y), line, HORIZONTAL_ALIGNMENT_LEFT, 220, 14, Color(0.55, 0.66, 0.62))
 		else:
 			draw_string(f, Vector2(x, y), line, HORIZONTAL_ALIGNMENT_LEFT, 220, 14, ink)
-		y += 22
-	draw_string(f, Vector2(x, lcd.end.y - 8), "Enter ok   Esc voltar   Tab fechar", HORIZONTAL_ALIGNMENT_LEFT, 220, 11, ink)
+		y += step
+	if notice_t > 0.0:
+		draw_string(f, Vector2(x, lcd.end.y - 8), notice, HORIZONTAL_ALIGNMENT_LEFT, 220, 12, ink)
+	else:
+		draw_string(f, Vector2(x, lcd.end.y - 8), "Enter ok   Esc voltar   Tab fechar", HORIZONTAL_ALIGNMENT_LEFT, 220, 11, ink)

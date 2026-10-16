@@ -1,8 +1,9 @@
-# Exploração isométrica: mapa, Branca, inimigos, lanterna, esconderijos, sinal e dinheiro.
+# Exploração isométrica: mapa, Branca, inimigos, lanterna, esconderijos, sinal, baú, itens e dinheiro.
 # Toda a arte aqui é desenhada por código e é PROVISÓRIA.
 extends Node2D
 
 const Data := preload("res://scripts/data.gd")
+const Itens := preload("res://scripts/itens.gd")
 
 const TW := 64.0
 const TH := 32.0
@@ -38,6 +39,7 @@ var coins: Array = []
 var signals: Array = []
 var runes: Array = []
 var npcs: Array = []
+var pickups: Array = []  # itens no chão
 var time := 0.0
 var hint := ""
 var cam: Camera2D
@@ -60,6 +62,7 @@ func reset(pos) -> void:
 	enemies = []
 	runes = []
 	npcs = []
+	pickups = []
 	h = Data.MAP.size()
 	w = Data.MAP[0].length()
 	var coin_i := 0
@@ -80,6 +83,11 @@ func reset(pos) -> void:
 					c = "."
 				"S":
 					signals.append(center)
+				"1", "2", "3":
+					var key := "%d,%d" % [i, j]
+					if not main.taken_items.has(key):
+						pickups.append({"pos": center, "key": key, "id": Data.ITENS_NO_MAPA[c]})
+					c = "."
 				"N":
 					npcs.append({"pos": center, "tile": Vector2i(i, j), "data": Data.NPCS[c]})
 				"a", "b":
@@ -303,6 +311,41 @@ func _npc_near() -> Dictionary:
 	return {}
 
 
+func _pickup_near() -> Dictionary:
+	var best := {}
+	var best_d := 0.9
+	for p in pickups:
+		var d: float = p.pos.distance_to(player_pos)
+		if d < best_d:
+			best_d = d
+			best = p
+	return best
+
+
+# Baú e sinal ficam lado a lado: vale o que estiver mais perto da Branca.
+func _chest_first() -> bool:
+	var b := _nearby("B")
+	if b.x < 0:
+		return false
+	var sg := _nearby("S")
+	if sg.x < 0:
+		return true
+	var c := Vector2(0.5, 0.5)
+	return player_pos.distance_to(Vector2(b) + c) < player_pos.distance_to(Vector2(sg) + c)
+
+
+func _pick_up(p: Dictionary) -> void:
+	var nome: String = Data.ITENS[p.id].nome
+	if not main.add_item(p.id):
+		main.play_sfx("erro")
+		main.toast("Inventário cheio. Guarde algo no baú do sinal.")
+		return
+	pickups.erase(p)
+	main.taken_items.append(p.key)
+	main.play_sfx("item")
+	main.toast("Pegou: %s" % nome)
+
+
 func _interact() -> void:
 	if escondida:
 		escondida = false
@@ -312,11 +355,18 @@ func _interact() -> void:
 	if not npc.is_empty():
 		main.start_dialogue(npc.data.dialogo)
 		return
+	var p := _pickup_near()
+	if not p.is_empty():
+		_pick_up(p)
+		return
 	var wd := _nearby("W")
 	if wd.x >= 0:
 		escondida = true
 		hide_tile = wd
 		main.play_sfx("clique")
+		return
+	if _chest_first():
+		main.open_chest()
 		return
 	var sg := _nearby("S")
 	if sg.x >= 0:
@@ -328,8 +378,12 @@ func _update_hint() -> void:
 		hint = "[E] Sair do armário"
 	elif not _npc_near().is_empty():
 		hint = "[E] Conversar com " + _npc_near().data.nome
+	elif not _pickup_near().is_empty():
+		hint = "[E] Pegar " + Data.ITENS[_pickup_near().id].nome.to_lower()
 	elif _nearby("W").x >= 0:
 		hint = "[E] Esconder-se no armário"
+	elif _chest_first():
+		hint = "[E] Abrir o baú"
 	elif _nearby("S").x >= 0:
 		hint = "[E] Usar o sinal (salvar)"
 	else:
@@ -400,10 +454,14 @@ func _draw() -> void:
 				items.append([i + j + 1.0, "wardrobe", Vector2i(i, j)])
 			elif c == "S":
 				items.append([i + j + 0.9, "signal", Vector2i(i, j)])
+			elif c == "B":
+				items.append([i + j + 1.0, "chest", Vector2i(i, j)])
 	for n in npcs:
 		items.append([n.pos.x + n.pos.y, "npc", n])
 	for c in coins:
 		items.append([c.pos.x + c.pos.y, "coin", c])
+	for p in pickups:
+		items.append([p.pos.x + p.pos.y, "pickup", p])
 	for e in enemies:
 		if e.alive:
 			items.append([e.pos.x + e.pos.y, "enemy", e])
@@ -416,6 +474,8 @@ func _draw() -> void:
 			"wardrobe": _draw_wardrobe(it[2])
 			"signal": _draw_signal(it[2])
 			"coin": _draw_coin(it[2])
+			"pickup": _draw_pickup(it[2])
+			"chest": _draw_chest(it[2])
 			"enemy": _draw_enemy(it[2])
 			"npc": _draw_npc(it[2])
 			"player": _draw_branca()
@@ -480,6 +540,43 @@ func _draw_coin(c: Dictionary) -> void:
 	var p := s + Vector2(0, -8 + bob)
 	draw_colored_polygon(PackedVector2Array([p + Vector2(0, -5), p + Vector2(4, 0), p + Vector2(0, 5), p + Vector2(-4, 0)]), Color(1.0, 0.7, 0.3))
 	draw_circle(p, 9.0, Color(1.0, 0.65, 0.25, 0.12))
+
+
+# Item no chão: o ícone flutuando com um brilho pálido para ser visto no escuro.
+func _draw_pickup(p: Dictionary) -> void:
+	var s := iso(p.pos)
+	var bob := sin(time * 2.4 + p.pos.x) * 2.0
+	var c := s + Vector2(0, -12 + bob)
+	_shadow(s, 6.0)
+	draw_circle(c, 13.0, Color(0.85, 0.9, 1.0, 0.07 + 0.04 * sin(time * 3.0)))
+	Itens.draw_icon(self, p.id, c, 16.0, clampf(light_at(p.pos) + 0.35, 0.0, 1.0))
+
+
+# Baú de pedra com faixas de osso e um fecho de runa que acende como o sinal.
+func _draw_chest(t: Vector2i) -> void:
+	var p := Vector2(t.x + 0.5, t.y + 0.5)
+	var l := light_at(p + Vector2(0.6, 0.6))
+	var c := iso(p)
+	var hgt := 24.0
+	var sc := 0.62  # menor que uma casa inteira
+	var hw := TW * 0.5 * sc
+	var hh := TH * 0.5 * sc
+	var stone := Color(0.3, 0.28, 0.3)
+	var left := PackedVector2Array([c + Vector2(-hw, 0), c + Vector2(0, hh), c + Vector2(0, hh - hgt), c + Vector2(-hw, -hgt)])
+	var right := PackedVector2Array([c + Vector2(0, hh), c + Vector2(hw, 0), c + Vector2(hw, -hgt), c + Vector2(0, hh - hgt)])
+	_shadow(c + Vector2(0, 2), hw)
+	draw_colored_polygon(left, shade(mul(stone, 0.8), l))
+	draw_colored_polygon(right, shade(mul(stone, 0.6), l))
+	draw_colored_polygon(diamond(p, hgt, sc), shade(mul(stone, 1.2), l))
+	var bone := shade(Color(0.72, 0.68, 0.58), l)
+	for k in [0.3, 0.7]:
+		draw_line(c + Vector2(-hw * k, hh * (1.0 - k)) - Vector2(0, hgt * 0.98), c + Vector2(-hw * k, hh * (1.0 - k)), bone, 2.0)
+		draw_line(c + Vector2(hw * k, hh * (1.0 - k)) - Vector2(0, hgt * 0.98), c + Vector2(hw * k, hh * (1.0 - k)), bone, 2.0)
+	draw_polyline(diamond(p, hgt, sc), bone, 1.5)
+	var pulse := 0.6 + 0.4 * sin(time * 2.0)
+	var lock := c + Vector2(hw * 0.5, hh * 0.5 - hgt * 0.55)
+	draw_circle(lock, 7.0, Color(0.5, 0.9, 1.0, 0.1 * pulse))
+	draw_rect(Rect2(lock - Vector2(2, 3), Vector2(4, 6)), Color(0.5, 0.9, 1.0, 0.85 * pulse))
 
 
 func _shadow(s: Vector2, r: float) -> void:
