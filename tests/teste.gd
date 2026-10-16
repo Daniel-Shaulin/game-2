@@ -96,6 +96,7 @@ func _run() -> void:
 	await wait(4.0)
 	autoplay = true
 	await shot("04_combate")
+	print("velocidade das notas com chá: ", main.combat.scroll, " (normal ", main.combat.SCROLL, ")")
 	var w := 0.0
 	while main.combat.mode != "osu" and w < 30.0:
 		await wait(0.1)
@@ -110,7 +111,7 @@ func _run() -> void:
 	while main.state == "combat" and t < 90.0:
 		await wait(0.5)
 		t += 0.5
-	print("depois da luta 1: estado=", main.state, " vida=", main.hp, " dinheiro=", main.money, " tempo=", t)
+	print("depois da luta 1: estado=", main.state, " vida=", main.hp, " dinheiro=", main.money, " tempo=", t, " efeitos=", main.effects)
 	await wait(0.5)
 	await shot("05_depois_da_luta")
 	# morte: luta com o inimigo 2 sem tocar
@@ -121,10 +122,18 @@ func _run() -> void:
 	main.world.invuln = 0.0
 	await wait(0.3)
 	t = 0.0
+	while main.effects.get("amuleto", 3) >= 3 and t < 30.0:
+		await wait(0.05)
+		t += 0.05
+	await wait(0.1)
+	await shot("05b_amuleto_absorveu")
+	print("amuleto absorveu: cargas=", main.effects.get("amuleto", 0), " vida=", main.hp)
+	t = 0.0
 	while main.combat.state != "dead" and t < 60.0:
 		await wait(0.25)
 		t += 0.25
 	await shot("06_morte")
+	print("efeitos depois da morte: ", main.effects, " (amuleto gastou as 3 cargas)")
 	print("morte: dinheiro=", main.money, " (era 40)")
 	await wait(3.5)
 	print("recomeçou: vida=", main.hp, " estado=", main.combat.state)
@@ -218,9 +227,24 @@ func _teste_inventario() -> void:
 	await wait(0.1)
 	await shot("02l_usou_curativo")
 	print("vida depois do curativo: ", main.hp, " inventário: ", main.inventory)
+	# amuleto e chá pelo celular
+	while main.phone.sel != main.inventory.find("amuleto"):
+		main.phone.handle_key(KEY_W)
+	main.phone.handle_key(KEY_ENTER)
+	main.phone.handle_key(KEY_ENTER)
+	while main.phone.sel != main.inventory.find("cha"):
+		main.phone.handle_key(KEY_W)
+	main.phone.handle_key(KEY_ENTER)
+	await wait(0.1)
+	await shot("02m_item_cha")
+	main.phone.handle_key(KEY_ENTER)
+	await wait(0.1)
+	print("efeitos: ", main.effects, " inventário: ", main.inventory)
+	print("chá de novo: ", main.use_item(main.inventory.find("cha")))
 	main.phone.handle_key(KEY_TAB)
 	await wait(0.5)
 	main.hp = main.MAX_HP
+	await shot("02n_hud_efeitos")
 
 
 func _key_event(k: int) -> InputEventKey:

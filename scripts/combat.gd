@@ -2,12 +2,14 @@
 # - Pistas (estilo Guitar Hero): notas descem nas pistas D F J K.
 # - Mira (estilo osu!): mira com o mouse e acerta com D ou F (ou clique); sliders: segura e segue a bolinha.
 # Errar nota tira vida da Branca; acertar tira vida do inimigo. Morrer reinicia a luta com vida cheia
-# e perde parte do dinheiro. Arte e música PROVISÓRIAS.
+# e perde parte do dinheiro. Itens usados antes da luta: amuleto absorve erros, chá deixa as notas
+# mais lentas. Arte e música PROVISÓRIAS.
 extends Node2D
 
 signal ended(enemy: Dictionary, reward: int)
 
 const Data := preload("res://scripts/data.gd")
+const Itens := preload("res://scripts/itens.gd")
 
 const LANE_KEYS := [KEY_D, KEY_F, KEY_J, KEY_K]
 const OSU_KEYS := [KEY_D, KEY_F]
@@ -49,6 +51,9 @@ var mode := "lanes"  # "lanes" ou "osu"
 var lane_alpha := 1.0
 var banner := ["", 0.0]
 var autoplay := false  # só para o teste automático
+var scroll := SCROLL  # o chá diminui a velocidade das notas
+var approach := APPROACH
+var absorb_flash := 0.0
 
 
 func _ready() -> void:
@@ -71,9 +76,19 @@ func start(e: Dictionary, start_hp: float) -> void:
 	dmg_per_hit = 1.0 / (notes.size() * chart.kill_ratio)
 	player.stream = load(kind.musica)
 	enemy_start = start_hp
+	var slow: float = Data.EFEITOS.cha.lentidao if main.effects.has("cha") else 1.0
+	scroll = SCROLL * slow
+	approach = APPROACH / slow
 	_begin("intro")
 	msg = kind.nome
-	sub = "Atordoado: começa com menos vida" if start_hp < 1.0 else ""
+	var notes_txt: Array = []
+	if start_hp < 1.0:
+		notes_txt.append("Atordoado: começa com menos vida")
+	if main.effects.has("cha"):
+		notes_txt.append("Chá: notas mais lentas")
+	if main.effects.has("amuleto"):
+		notes_txt.append("Amuleto: absorve %d erros" % int(main.effects.amuleto))
+	sub = "   ·   ".join(notes_txt)
 
 
 func _reset_notes() -> void:
@@ -120,6 +135,7 @@ func _process(delta: float) -> void:
 		return
 	state_t += delta
 	shake = maxf(shake - delta * 30.0, 0.0)
+	absorb_flash = maxf(absorb_flash - delta * 2.5, 0.0)
 	banner[1] = maxf(banner[1] - delta, 0.0)
 	for i in 4:
 		lane_flash[i] = maxf(lane_flash[i] - delta * 5.0, 0.0)
@@ -275,6 +291,15 @@ func _feedback(text: String, at: Vector2, col: Color) -> void:
 
 func _miss(n: Dictionary) -> void:
 	combo = 0
+	if main.effects.get("amuleto", 0) > 0:
+		# o amuleto segura o erro: sem dano, gasta uma carga
+		main.effects.amuleto = int(main.effects.amuleto) - 1
+		if main.effects.amuleto <= 0:
+			main.effects.erase("amuleto")
+		absorb_flash = 1.0
+		_feedback("ABSORVIDO", _note_pos(n) - Vector2(0, 40 if n.k == "l" else 50), Color(1.0, 0.65, 0.25))
+		main.play_sfx("absorver")
+		return
 	_feedback("ERROU", _note_pos(n) - Vector2(0, 40 if n.k == "l" else 50), Color(0.9, 0.25, 0.25))
 	main.play_sfx("erro")
 	_hurt(kind.dano_erro)
@@ -333,6 +358,7 @@ func _draw() -> void:
 	draw_rect(Rect2(880, 58, 360, 16), Color(0.12, 0.1, 0.12))
 	draw_rect(Rect2(880 + 360 * (1.0 - enemy_hp), 58, 360 * enemy_hp, 16), Color(0.75, 0.7, 0.6))
 	_draw_lanes(off)
+	_draw_effects()  # por cima das pistas
 	if state == "play":
 		_draw_osu(off)
 	for fb in feedback:
@@ -349,6 +375,30 @@ func _draw() -> void:
 	if state == "play":
 		var hint := "Pistas: D F J K" if mode == "lanes" else "Mira: mouse na bolinha + D ou F (ou clique)   Slider: segure e siga"
 		_text(Vector2(0, 700), hint, 16, Color(0.6, 0.6, 0.6), HORIZONTAL_ALIGNMENT_CENTER, 1280)
+
+
+# Efeitos de itens ativos, embaixo da vida da Branca.
+func _draw_effects() -> void:
+	var x := 40.0
+	var y := 98.0
+	if main.effects.has("amuleto") or absorb_flash > 0.0:
+		if absorb_flash > 0.0:
+			draw_circle(Vector2(x + 14, y), 16.0 + 14.0 * (1.0 - absorb_flash), Color(1.0, 0.65, 0.25, 0.25 * absorb_flash))
+		Itens.draw_icon(self, "amuleto", Vector2(x + 14, y), 28.0)
+		var left := int(main.effects.get("amuleto", 0))
+		var total: int = Data.EFEITOS.amuleto.cargas
+		for k in total:
+			var p := Vector2(x + 42 + k * 20, y)
+			var d := PackedVector2Array([p + Vector2(0, -8), p + Vector2(7, 0), p + Vector2(0, 8), p + Vector2(-7, 0)])
+			if k < left:
+				draw_colored_polygon(d, Color(1.0, 0.65, 0.25))
+			else:
+				d.append(d[0])
+				draw_polyline(d, Color(0.5, 0.45, 0.4), 1.5)
+		x += 42 + total * 20 + 24
+	if main.effects.has("cha"):
+		Itens.draw_icon(self, "cha", Vector2(x + 14, y), 28.0)
+		_text(Vector2(x + 34, y + 6), "notas lentas", 16, Color(0.78, 0.75, 0.7))
 
 
 func _draw_lanes(off: Vector2) -> void:
@@ -369,9 +419,9 @@ func _draw_lanes(off: Vector2) -> void:
 		if n.done or n.k != "l":
 			continue
 		var dt: float = n.t - lt
-		if dt > (HIT_Y - 100) / SCROLL or dt < -WIN_GOOD:
+		if dt > (HIT_Y - 100) / scroll or dt < -WIN_GOOD:
 			continue
-		var y := HIT_Y - dt * SCROLL
+		var y := HIT_Y - dt * scroll
 		var x := LANE_X0 + int(n.lane) * LANE_W + off.x
 		var col: Color = LANE_COLORS[int(n.lane)]
 		draw_rect(Rect2(x + 8, y - 10 + off.y, LANE_W - 16, 20), col)
@@ -387,9 +437,9 @@ func _draw_osu(off: Vector2) -> void:
 		if n.done or n.k == "l":
 			continue
 		var dt: float = n.t - lt
-		if dt > APPROACH:
+		if dt > approach:
 			continue
-		var a := clampf(1.0 - dt / APPROACH, 0.0, 1.0) if dt > 0.0 else 1.0
+		var a := clampf(1.0 - dt / approach, 0.0, 1.0) if dt > 0.0 else 1.0
 		var head := Vector2(n.x, n.y) + off
 		if n.k == "s":
 			var pts := PackedVector2Array()
@@ -407,7 +457,7 @@ func _draw_osu(off: Vector2) -> void:
 		draw_circle(head, CIRCLE_R, Color(wine, 0.85 * a))
 		draw_arc(head, CIRCLE_R, 0, TAU, 32, Color(cream, a), 3.0)
 		if dt > 0.0:
-			var r := CIRCLE_R * (1.0 + 2.2 * dt / APPROACH)
+			var r := CIRCLE_R * (1.0 + 2.2 * dt / approach)
 			draw_arc(head, r, 0, TAU, 40, Color(cream, 0.7 * a), 2.0)
 
 

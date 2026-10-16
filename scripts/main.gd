@@ -25,6 +25,7 @@ var flags: Dictionary = {}  # marcas da história e dos diálogos ("marcar" nos 
 var inventory: Array = []  # ids de Data.ITENS, no máximo Data.INV_SLOTS
 var chest: Array = []  # o baú dos pontos de sinal (sem limite)
 var taken_items: Array = []  # itens do chão já pegos ("i,j" da casa no mapa)
+var effects: Dictionary = {}  # efeitos ativos de itens: "amuleto" -> cargas restantes, "cha" -> true
 var volume := 0.8
 var toasts: Array = []  # [texto, tempo]
 
@@ -46,7 +47,7 @@ func _ready() -> void:
 	music.volume_db = -6.0
 	music.finished.connect(func(): if state != "combat": music.play())
 	add_child(music)
-	for n in ["acerto", "erro", "lanterna", "moeda", "sinal", "clique", "alerta", "fala", "item", "curar"]:
+	for n in ["acerto", "erro", "lanterna", "moeda", "sinal", "clique", "alerta", "fala", "item", "curar", "absorver"]:
 		var p := AudioStreamPlayer.new()
 		p.stream = load("res://audio/%s.wav" % n)
 		add_child(p)
@@ -202,6 +203,7 @@ func new_game() -> void:
 	inventory = []
 	chest = []
 	taken_items = []
+	effects = {}
 	world.reset(null)
 	set_state("explore")
 	toast("Missão: voltar para casa")
@@ -215,7 +217,7 @@ func save_game() -> void:
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	f.store_string(JSON.stringify({
 		"hp": hp, "money": money, "messages": messages, "taken": taken, "flags": flags,
-		"inventory": inventory, "chest": chest, "taken_items": taken_items,
+		"inventory": inventory, "chest": chest, "taken_items": taken_items, "effects": effects,
 		"pos": [world.player_pos.x, world.player_pos.y], "volume": volume,
 	}))
 
@@ -234,6 +236,7 @@ func load_game() -> void:
 	inventory = d.get("inventory", [])
 	chest = d.get("chest", [])
 	taken_items = d.get("taken_items", [])
+	effects = d.get("effects", {})
 	set_volume(d.get("volume", volume))
 	stamina = MAX_STAMINA
 	var p: Array = d.get("pos", [])
@@ -266,8 +269,14 @@ func add_item(id: String) -> bool:
 # Usa o item da vaga `i` pelo celular. Retorna o aviso para mostrar na tela.
 func use_item(i: int) -> String:
 	var it: Dictionary = Data.ITENS[inventory[i]]
-	if not it.has("curar"):
-		return "Só tem efeito no combate."
+	if it.has("efeito"):
+		var ef: String = it.efeito
+		if effects.has(ef):
+			return "%s já está fazendo efeito." % it.nome
+		effects[ef] = Data.EFEITOS[ef].get("cargas", true)
+		inventory.remove_at(i)
+		play_sfx("curar")
+		return "Usou %s." % it.nome.to_lower()
 	if hp >= MAX_HP:
 		return "A vida já está cheia."
 	hp = minf(MAX_HP, hp + it.curar)
@@ -317,6 +326,7 @@ func death_penalty() -> int:
 
 
 func _on_combat_ended(enemy: Dictionary, reward: int) -> void:
+	effects.erase("cha")  # o chá dura uma luta; o amuleto dura até gastar as cargas
 	money += reward
 	world.enemy_defeated(enemy)
 	set_state("explore")
