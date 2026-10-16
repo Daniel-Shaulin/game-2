@@ -2,7 +2,7 @@
 extends RefCounted
 
 # '#' parede  '~' água  'W' armário (esconderijo)  'S' ponto de sinal (save)
-# '$' dinheiro  'P' início da Branca  'a'/'b' inimigos  '.' chão
+# '$' dinheiro  'P' início da Branca  'a'/'b' inimigos  'N' personagem para conversar  '.' chão
 const MAP := [
 	"########################",
 	"#~~~~~~~~~~~~~~~~~~~~~~#",
@@ -10,7 +10,7 @@ const MAP := [
 	"#~~~~~~~~...~~~~~~~~~~~#",
 	"#~~~~~~.......~~~~~~~~~#",
 	"#~~~~.....P.....~~~~~~##",
-	"#~~.............~~~~~~##",
+	"#~~.........N...~~~~~~##",
 	"#.......##..........S.##",
 	"#.......##...$........##",
 	"#..W..........a.......##",
@@ -28,6 +28,11 @@ const MAP := [
 const PATROLS := {
 	"a": [Vector2(14.5, 9.5), Vector2(19.5, 9.5), Vector2(19.5, 12.5), Vector2(12.5, 12.5), Vector2(12.5, 9.5)],
 	"b": [Vector2(17.5, 14.5), Vector2(21.5, 14.5), Vector2(21.5, 16.5), Vector2(9.5, 16.5), Vector2(17.5, 16.5)],
+}
+
+# Personagens que conversam (letra no mapa -> nome e arquivo em res://dialogos/).
+const NPCS := {
+	"N": {"nome": "Figura de teste", "dialogo": "npc_teste"},
 }
 
 const ENEMIES := {
