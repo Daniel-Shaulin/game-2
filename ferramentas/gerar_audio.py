@@ -95,20 +95,39 @@ def note_freq(semi, base=41.2):
 
 
 class Circles:
+    """Posições dos círculos e sliders do modo osu (a área livre da tela no modo osu)."""
+    X0, X1, Y0, Y1 = 280, 1180, 160, 620
+
     def __init__(self, rng):
         self.rng = rng
-        self.pos = np.array([950.0, 390.0])
+        self.pos = np.array([730.0, 390.0])
 
-    def next(self):
-        for _ in range(30):
+    def _inside(self, p):
+        return self.X0 <= p[0] <= self.X1 and self.Y0 <= p[1] <= self.Y1
+
+    def next(self, lo=130, hi=240):
+        for _ in range(40):
             ang = self.rng.uniform(0, 2 * np.pi)
-            dist = self.rng.uniform(120, 220)
-            p = self.pos + dist * np.array([np.cos(ang), np.sin(ang)])
-            if 730 <= p[0] <= 1170 and 170 <= p[1] <= 610:
+            p = self.pos + self.rng.uniform(lo, hi) * np.array([np.cos(ang), np.sin(ang)])
+            if self._inside(p):
                 self.pos = p
                 return [round(float(p[0])), round(float(p[1]))]
-        self.pos = np.array([950.0, 390.0])
-        return [950, 390]
+        self.pos = np.array([730.0, 390.0])
+        return [730, 390]
+
+    def curve(self, start, end):
+        a, b = np.array(start, float), np.array(end, float)
+        d = b - a
+        perp = np.array([-d[1], d[0]]) / (np.linalg.norm(d) or 1.0)
+        c = (a + b) / 2 + perp * self.rng.uniform(-90, 90)
+        c = np.clip(c, [self.X0, self.Y0], [self.X1, self.Y1])
+        return [round(float(c[0])), round(float(c[1]))]
+
+
+def pad(freq, dur, amp=0.18):
+    t = tvec(dur)
+    env = np.minimum(1.0, t * 30) * np.minimum(1.0, (dur - t) * 20)
+    return (np.sin(2 * np.pi * freq * t) + 0.4 * np.sin(2 * np.pi * freq * 2.003 * t)) * env * amp
 
 
 def make_song(name, bpm, bars, sections, seed, prog, kill_ratio):
@@ -162,16 +181,25 @@ def make_song(name, bpm, bars, sections, seed, prog, kill_ratio):
                 for b in (0.5, 1.5):
                     place(buf, pluck(note_freq(root + 24)), t0 + b * beat)
                     notes.append({"t": t0 + b * beat, "k": "l", "lane": lane([0, 1, 2, 3])})
-        else:  # circles: mão direita no mouse, esquerda no D e F
+        else:  # modo osu: mira com o mouse, acerta com D/F (ou clique); sem pistas
             for b in (0, 2):
                 place(buf, kick(), t0 + b * beat)
-                notes.append({"t": t0 + b * beat, "k": "l", "lane": lane([0, 1])})
-            pattern = (1, 3) if not intense else (1, 1.5, 3, 3.5)
-            for i, b in enumerate(pattern):
+            place(buf, snare(rng) * 0.6, t0 + 3 * beat)
+            hits = (0, 1, 2, 3) if not intense else (0, 1)
+            for i, b in enumerate(hits):
                 place(buf, bell(note_freq(root + 36 + (7 if i % 2 else 0)), 0.9, 0.2), t0 + b * beat)
                 x, y = circles.next()
                 notes.append({"t": t0 + b * beat, "k": "c", "x": x, "y": y})
-            place(buf, snare(rng) * 0.6, t0 + 3 * beat)
+            if intense:
+                # slider: acerta a cabeça e segura D/F seguindo a bolinha até o fim
+                dur = 1.5 * beat
+                x, y = circles.next()
+                ex, ey = circles.next(160, 260)
+                cx, cy = circles.curve([x, y], [ex, ey])
+                place(buf, bell(note_freq(root + 36), 0.9, 0.2), t0 + 2 * beat)
+                place(buf, pad(note_freq(root + 31), dur), t0 + 2 * beat)
+                notes.append({"t": t0 + 2 * beat, "k": "s", "x": x, "y": y, "dur": round(dur, 4),
+                              "cx": cx, "cy": cy, "ex": ex, "ey": ey})
     notes.sort(key=lambda n: n["t"])
     for n in notes:
         n["t"] = round(n["t"], 4)

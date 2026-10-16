@@ -7,6 +7,7 @@ var main
 var page := "menu"
 var sel := 0
 var reading := -1
+var slide := 0.0  # 0 = guardado, 1 = na mão (animado pelo main)
 
 
 func _ready() -> void:
@@ -78,7 +79,9 @@ func handle_key(k: int) -> void:
 
 func _draw() -> void:
 	var f := ThemeDB.fallback_font
-	draw_rect(Rect2(0, 0, 1280, 720), Color(0, 0, 0, 0.55))
+	draw_rect(Rect2(0, 0, 1280, 720), Color(0, 0, 0, 0.25 * slide))
+	# o celular fica à direita; a câmera aproxima da Branca à esquerda
+	draw_set_transform(Vector2(330, (1.0 - slide) * 520.0))
 	var body := StyleBoxFlat.new()
 	body.bg_color = Color(0.17, 0.17, 0.19)
 	body.set_corner_radius_all(26)
@@ -104,7 +107,6 @@ func _draw() -> void:
 	for b in 4:
 		var hb := 3 + b * 3
 		draw_rect(Rect2(x + b * 5, y - hb, 3, hb), ink if b < bars else Color(ink, 0.2))
-	draw_string(f, Vector2(x, y), "", HORIZONTAL_ALIGNMENT_RIGHT, 220, 13, ink)
 	draw_string(f, Vector2(lcd.position.x, y), "E-317", HORIZONTAL_ALIGNMENT_RIGHT, 230, 13, ink)
 	y += 22
 	if reading >= 0:
