@@ -1,5 +1,8 @@
-# HUD limpa da exploração: vida, estamina, dinheiro, missão, dica de interação e avisos.
+# HUD limpa da exploração: vida, estamina, dinheiro, efeitos de itens, missão, dica de interação e avisos.
 extends Control
+
+const Data := preload("res://scripts/data.gd")
+const Itens := preload("res://scripts/itens.gd")
 
 var main
 
@@ -33,6 +36,16 @@ func _draw() -> void:
 	_bar(Vector2(100, 22), Vector2(220, 14), main.hp / main.MAX_HP, Color(0.55, 0.12, 0.16))
 	_bar(Vector2(100, 44), Vector2(160, 8), main.stamina / main.MAX_STAMINA, Color(0.75, 0.78, 0.8))
 	_text(Vector2(24, 82), "Dinheiro: %d" % main.money, 16, Color(1.0, 0.75, 0.4))
+	var x := 24.0
+	for ef in ["amuleto", "cha"]:
+		if not main.effects.has(ef):
+			continue
+		Itens.draw_icon(self, ef, Vector2(x + 9, 106), 18.0)
+		var label: String = Data.EFEITOS[ef].nome
+		if ef == "amuleto":
+			label += " %d/%d" % [int(main.effects.amuleto), Data.EFEITOS.amuleto.cargas]
+		_text(Vector2(x + 22, 112), label, 15, Color(0.8, 0.78, 0.74))
+		x += 40 + ThemeDB.fallback_font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x
 	_text(Vector2(1040, 34), "Missão: voltar para casa", 16, Color(0.75, 0.75, 0.72), HORIZONTAL_ALIGNMENT_RIGHT, 216)
 	if main.messages.any(func(m): return not m.get("lida", false)):
 		_text(Vector2(1040, 58), "Nova mensagem [Tab]", 15, Color(0.5, 0.9, 1.0), HORIZONTAL_ALIGNMENT_RIGHT, 216)

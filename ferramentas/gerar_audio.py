@@ -256,6 +256,8 @@ def itens():
     t = tvec(0.9)
     env = np.minimum(t / 0.15, 1.0) * np.exp(-t * 3.5)
     save_wav("curar.wav", (np.sin(2 * np.pi * 392 * t) + 0.6 * np.sin(2 * np.pi * 587 * t)) * env * 0.22)
+    # amuleto absorvendo um erro: sino grave e abafado
+    save_wav("absorver.wav", lowpass(bell(196, 0.7, 0.5), 0.35) + np.sin(2 * np.pi * 98 * tvec(0.7)) * np.exp(-tvec(0.7) * 8) * 0.2)
 
 
 if __name__ == "__main__":

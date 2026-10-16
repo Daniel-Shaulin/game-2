@@ -63,7 +63,7 @@ func handle_key(k: int) -> void:
 		if page == "Inventário" and k in [KEY_ENTER, KEY_KP_ENTER, KEY_E, KEY_SPACE]:
 			notice = main.use_item(reading)
 			notice_t = 2.5
-			if reading >= main.inventory.size() or notice.begins_with("Usou"):
+			if notice.begins_with("Usou"):
 				reading = -1
 		return
 	if k == KEY_W or k == KEY_UP:
@@ -134,7 +134,7 @@ func _draw() -> void:
 		draw_multiline_string(f, Vector2(x, y), it.descricao, HORIZONTAL_ALIGNMENT_LEFT, 220, 14, -1, ink)
 		if notice_t > 0.0:
 			draw_string(f, Vector2(x, lcd.end.y - 28), notice, HORIZONTAL_ALIGNMENT_LEFT, 220, 13, ink)
-		draw_string(f, Vector2(x, lcd.end.y - 8), ("Enter usar   " if it.has("curar") else "") + "Esc voltar", HORIZONTAL_ALIGNMENT_LEFT, 220, 12, ink)
+		draw_string(f, Vector2(x, lcd.end.y - 8), "Enter usar   Esc voltar", HORIZONTAL_ALIGNMENT_LEFT, 220, 12, ink)
 		return
 	if reading >= 0:
 		var m: Dictionary = main.messages[reading]
