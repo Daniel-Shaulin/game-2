@@ -1,4 +1,4 @@
-# Controla os estados do jogo (título, exploração, diálogo, combate, celular) e o estado da Branca.
+# Controla os estados do jogo (título, exploração, diálogo, baú, combate, celular) e o estado da Branca.
 extends Node
 
 const Data := preload("res://scripts/data.gd")
@@ -8,6 +8,7 @@ const Hud := preload("res://scripts/hud.gd")
 const Phone := preload("res://scripts/phone.gd")
 const Title := preload("res://scripts/title.gd")
 const Dialogue := preload("res://scripts/dialogue.gd")
+const Bau := preload("res://scripts/bau.gd")
 
 const SAVE_PATH := "user://save.json"
 const MAX_HP := 100.0
@@ -21,6 +22,9 @@ var money := 0
 var messages: Array = []
 var taken: Array = []  # dinheiro já pego no mapa
 var flags: Dictionary = {}  # marcas da história e dos diálogos ("marcar" nos arquivos de diálogo)
+var inventory: Array = []  # ids de Data.ITENS, no máximo Data.INV_SLOTS
+var chest: Array = []  # o baú dos pontos de sinal (sem limite)
+var taken_items: Array = []  # itens do chão já pegos ("i,j" da casa no mapa)
 var volume := 0.8
 var toasts: Array = []  # [texto, tempo]
 
@@ -30,6 +34,7 @@ var hud: Control
 var phone: Control
 var title: Control
 var dialogue: Control
+var bau: Control
 var music: AudioStreamPlayer
 var sfx: Dictionary = {}
 
@@ -41,7 +46,7 @@ func _ready() -> void:
 	music.volume_db = -6.0
 	music.finished.connect(func(): if state != "combat": music.play())
 	add_child(music)
-	for n in ["acerto", "erro", "lanterna", "moeda", "sinal", "clique", "alerta", "fala"]:
+	for n in ["acerto", "erro", "lanterna", "moeda", "sinal", "clique", "alerta", "fala", "item", "curar"]:
 		var p := AudioStreamPlayer.new()
 		p.stream = load("res://audio/%s.wav" % n)
 		add_child(p)
@@ -68,6 +73,14 @@ func _ready() -> void:
 	dialogue.visible = false
 	dialogue.finished.connect(_on_dialogue_finished)
 	dialogue_layer.add_child(dialogue)
+
+	var bau_layer := CanvasLayer.new()
+	bau_layer.layer = 6
+	add_child(bau_layer)
+	bau = Bau.new()
+	bau.main = self
+	bau.visible = false
+	bau_layer.add_child(bau)
 
 	var combat_layer := CanvasLayer.new()
 	combat_layer.layer = 5
@@ -116,6 +129,7 @@ func set_state(s: String) -> void:
 	combat.visible = s == "combat"
 	phone.visible = s == "phone"
 	dialogue.visible = s == "dialogue"
+	bau.visible = s == "chest"
 	title.visible = s == "title"
 	if s == "explore" or s == "title":
 		if not music.playing:
@@ -156,6 +170,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			phone.handle_key(k)
 		"dialogue":
 			dialogue.handle_key(k)
+		"chest":
+			bau.handle_key(k)
 		"combat":
 			combat.handle_key(k)
 
@@ -183,6 +199,9 @@ func new_game() -> void:
 	messages = []
 	taken = []
 	flags = {}
+	inventory = []
+	chest = []
+	taken_items = []
 	world.reset(null)
 	set_state("explore")
 	toast("Missão: voltar para casa")
@@ -196,6 +215,7 @@ func save_game() -> void:
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	f.store_string(JSON.stringify({
 		"hp": hp, "money": money, "messages": messages, "taken": taken, "flags": flags,
+		"inventory": inventory, "chest": chest, "taken_items": taken_items,
 		"pos": [world.player_pos.x, world.player_pos.y], "volume": volume,
 	}))
 
@@ -211,6 +231,9 @@ func load_game() -> void:
 	messages = d.get("messages", [])
 	taken = d.get("taken", [])
 	flags = d.get("flags", {})
+	inventory = d.get("inventory", [])
+	chest = d.get("chest", [])
+	taken_items = d.get("taken_items", [])
 	set_volume(d.get("volume", volume))
 	stamina = MAX_STAMINA
 	var p: Array = d.get("pos", [])
@@ -228,6 +251,41 @@ func on_signal_point() -> void:
 		m["lida"] = false
 		messages.append(m)
 		toast("Nova mensagem no celular [Tab]")
+
+
+# ---------- itens e baú ----------
+
+# Coloca um item no inventário. Retorna false se não houver espaço.
+func add_item(id: String) -> bool:
+	if inventory.size() >= Data.INV_SLOTS:
+		return false
+	inventory.append(id)
+	return true
+
+
+# Usa o item da vaga `i` pelo celular. Retorna o aviso para mostrar na tela.
+func use_item(i: int) -> String:
+	var it: Dictionary = Data.ITENS[inventory[i]]
+	if not it.has("curar"):
+		return "Só tem efeito no combate."
+	if hp >= MAX_HP:
+		return "A vida já está cheia."
+	hp = minf(MAX_HP, hp + it.curar)
+	inventory.remove_at(i)
+	play_sfx("curar")
+	return "Usou %s." % it.nome.to_lower()
+
+
+func open_chest() -> void:
+	play_sfx("clique")
+	bau.open()
+	set_state("chest")
+
+
+func close_chest() -> void:
+	play_sfx("clique")
+	set_state("explore")
+	world.invuln = maxf(world.invuln, 0.4)
 
 
 # ---------- diálogo ----------

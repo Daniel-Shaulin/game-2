@@ -246,6 +246,18 @@ def fala():
     save_wav("fala.wav", np.sin(2 * np.pi * 330 * t) * np.exp(-t * 60) * 0.3 + np.sin(2 * np.pi * 495 * t) * np.exp(-t * 90) * 0.1)
 
 
+def itens():
+    # pegar um item: tecido arrastado + toque grave
+    rng = np.random.default_rng(5)
+    t = tvec(0.35)
+    rustle = lowpass(rng.uniform(-1, 1, len(t)), 0.25) * np.exp(-t * 14) * 0.5
+    save_wav("item.wav", rustle + np.sin(2 * np.pi * 220 * t) * np.exp(-t * 18) * 0.25)
+    # curar: dois tons que sobem devagar
+    t = tvec(0.9)
+    env = np.minimum(t / 0.15, 1.0) * np.exp(-t * 3.5)
+    save_wav("curar.wav", (np.sin(2 * np.pi * 392 * t) + 0.6 * np.sin(2 * np.pi * 587 * t)) * env * 0.22)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     # Inimigo de teste 1: rápido, mais pistas
@@ -257,3 +269,4 @@ if __name__ == "__main__":
     ambient()
     sfx()
     fala()
+    itens()
