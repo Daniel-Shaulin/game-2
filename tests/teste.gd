@@ -46,6 +46,34 @@ func _run() -> void:
 	main.new_game()
 	await wait(1.2)
 	await shot("02_exploracao")
+	# diálogo com a figura de teste
+	main.world.player_pos = Vector2(11.5, 6.5)
+	await wait(0.3)
+	main.world.handle_key(KEY_E)
+	print("diálogo aberto: ", main.state)
+	await wait(0.5)
+	await shot("02b_dialogo")
+	var guard := 0
+	while main.state == "dialogue" and guard < 40:
+		guard += 1
+		var d = main.dialogue
+		if not d._typing() and d.current.has("escolhas"):
+			await shot("02c_escolha")
+			d.handle_key(KEY_S)
+			await wait(0.2)
+			await shot("02d_escolha_2")
+		d.handle_key(KEY_E)
+		await wait(0.15)
+	print("diálogo terminou: ", main.state, " marca: ", main.flags.get("falou_com_teste", false))
+	await wait(0.8)
+	main.world.handle_key(KEY_E)
+	await wait(2.5)
+	await shot("02e_dialogo_de_novo")
+	print("segunda conversa: ", main.dialogue.current.get("texto", ""))
+	main.dialogue.handle_key(KEY_E)
+	main.dialogue.handle_key(KEY_E)
+	await wait(0.2)
+	main.world.player_pos = main.world.start_pos
 	key(KEY_D, true)
 	await wait(0.8)
 	key(KEY_D, false)

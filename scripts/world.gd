@@ -37,6 +37,7 @@ var enemies: Array = []
 var coins: Array = []
 var signals: Array = []
 var runes: Array = []
+var npcs: Array = []
 var time := 0.0
 var hint := ""
 var cam: Camera2D
@@ -58,6 +59,7 @@ func reset(pos) -> void:
 	signals = []
 	enemies = []
 	runes = []
+	npcs = []
 	h = Data.MAP.size()
 	w = Data.MAP[0].length()
 	var coin_i := 0
@@ -78,6 +80,8 @@ func reset(pos) -> void:
 					c = "."
 				"S":
 					signals.append(center)
+				"N":
+					npcs.append({"pos": center, "tile": Vector2i(i, j), "data": Data.NPCS[c]})
 				"a", "b":
 					enemies.append({
 						"kind": c, "pos": center, "home": center, "path": Data.PATROLS[c], "path_i": 0,
@@ -291,10 +295,22 @@ func _nearby(kind: String) -> Vector2i:
 	return best
 
 
+func _npc_near() -> Dictionary:
+	var t := _nearby("N")
+	for n in npcs:
+		if n.tile == t:
+			return n
+	return {}
+
+
 func _interact() -> void:
 	if escondida:
 		escondida = false
 		invuln = 0.5
+		return
+	var npc := _npc_near()
+	if not npc.is_empty():
+		main.start_dialogue(npc.data.dialogo)
 		return
 	var wd := _nearby("W")
 	if wd.x >= 0:
@@ -310,6 +326,8 @@ func _interact() -> void:
 func _update_hint() -> void:
 	if escondida:
 		hint = "[E] Sair do armário"
+	elif not _npc_near().is_empty():
+		hint = "[E] Conversar com " + _npc_near().data.nome
 	elif _nearby("W").x >= 0:
 		hint = "[E] Esconder-se no armário"
 	elif _nearby("S").x >= 0:
@@ -382,6 +400,8 @@ func _draw() -> void:
 				items.append([i + j + 1.0, "wardrobe", Vector2i(i, j)])
 			elif c == "S":
 				items.append([i + j + 0.9, "signal", Vector2i(i, j)])
+	for n in npcs:
+		items.append([n.pos.x + n.pos.y, "npc", n])
 	for c in coins:
 		items.append([c.pos.x + c.pos.y, "coin", c])
 	for e in enemies:
@@ -397,6 +417,7 @@ func _draw() -> void:
 			"signal": _draw_signal(it[2])
 			"coin": _draw_coin(it[2])
 			"enemy": _draw_enemy(it[2])
+			"npc": _draw_npc(it[2])
 			"player": _draw_branca()
 	if flash_t > 0.0:
 		var o := iso(player_pos) - Vector2(0, 20)
@@ -539,3 +560,20 @@ func _draw_enemy(e: Dictionary) -> void:
 		for k in 3:
 			var a := time * 4.0 + k * TAU / 3.0
 			draw_rect(Rect2(o + Vector2(cos(a) * 9.0, -hgt - 12 + sin(a) * 3.0), Vector2(2, 2)), Color(0.8, 0.9, 1.0))
+
+
+# Figura de teste encapuzada (provisória), parada no lugar.
+func _draw_npc(n: Dictionary) -> void:
+	var s := iso(n.pos)
+	var l := maxf(light_at(n.pos), 0.18)
+	var sway := sin(time * 1.5) * 1.0
+	_shadow(s, 10.0)
+	var cloak := Color(0.3, 0.27, 0.3)
+	draw_colored_polygon(PackedVector2Array([s + Vector2(-6 + sway, -46), s + Vector2(6 + sway, -46), s + Vector2(11, -2), s + Vector2(-11, -2)]), shade(cloak, l))
+	draw_colored_polygon(PackedVector2Array([s + Vector2(-7 + sway, -44), s + Vector2(sway, -56), s + Vector2(7 + sway, -44)]), shade(mul(cloak, 1.15), l))
+	draw_rect(Rect2(s + Vector2(-4 + sway, -45), Vector2(8, 8)), Color(0.04, 0.04, 0.05))
+	draw_rect(Rect2(s + Vector2(-3 + sway, -42), Vector2(2, 1)), Color(0.85, 0.8, 0.6, 0.8))
+	draw_rect(Rect2(s + Vector2(1 + sway, -42), Vector2(2, 1)), Color(0.85, 0.8, 0.6, 0.8))
+	if not _npc_near().is_empty() and _npc_near() == n:
+		var b := s + Vector2(sway, -70 + sin(time * 4.0) * 2.0)
+		draw_colored_polygon(PackedVector2Array([b + Vector2(-5, -4), b + Vector2(5, -4), b + Vector2(0, 3)]), Color(0.85, 0.8, 0.7, 0.9))

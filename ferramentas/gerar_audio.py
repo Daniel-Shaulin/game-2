@@ -240,6 +240,12 @@ def sfx():
     save_wav("alerta.wav", stab * 0.4)
 
 
+def fala():
+    # "bip" baixo e curto que toca enquanto o texto do diálogo aparece
+    t = tvec(0.045)
+    save_wav("fala.wav", np.sin(2 * np.pi * 330 * t) * np.exp(-t * 60) * 0.3 + np.sin(2 * np.pi * 495 * t) * np.exp(-t * 90) * 0.1)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     # Inimigo de teste 1: rápido, mais pistas
@@ -250,3 +256,4 @@ if __name__ == "__main__":
               seed=23, prog=[0, 1, 0, -2], kill_ratio=0.7)
     ambient()
     sfx()
+    fala()

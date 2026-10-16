@@ -1,4 +1,4 @@
-# Controla os estados do jogo (título, exploração, combate, celular) e o estado da Branca.
+# Controla os estados do jogo (título, exploração, diálogo, combate, celular) e o estado da Branca.
 extends Node
 
 const Data := preload("res://scripts/data.gd")
@@ -7,6 +7,7 @@ const Combat := preload("res://scripts/combat.gd")
 const Hud := preload("res://scripts/hud.gd")
 const Phone := preload("res://scripts/phone.gd")
 const Title := preload("res://scripts/title.gd")
+const Dialogue := preload("res://scripts/dialogue.gd")
 
 const SAVE_PATH := "user://save.json"
 const MAX_HP := 100.0
@@ -19,6 +20,7 @@ var stamina := MAX_STAMINA
 var money := 0
 var messages: Array = []
 var taken: Array = []  # dinheiro já pego no mapa
+var flags: Dictionary = {}  # marcas da história e dos diálogos ("marcar" nos arquivos de diálogo)
 var volume := 0.8
 var toasts: Array = []  # [texto, tempo]
 
@@ -27,6 +29,7 @@ var combat: Node2D
 var hud: Control
 var phone: Control
 var title: Control
+var dialogue: Control
 var music: AudioStreamPlayer
 var sfx: Dictionary = {}
 
@@ -38,12 +41,13 @@ func _ready() -> void:
 	music.volume_db = -6.0
 	music.finished.connect(func(): if state != "combat": music.play())
 	add_child(music)
-	for n in ["acerto", "erro", "lanterna", "moeda", "sinal", "clique", "alerta"]:
+	for n in ["acerto", "erro", "lanterna", "moeda", "sinal", "clique", "alerta", "fala"]:
 		var p := AudioStreamPlayer.new()
 		p.stream = load("res://audio/%s.wav" % n)
 		add_child(p)
 		sfx[n] = p
 	sfx["acerto"].volume_db = -8.0
+	sfx["fala"].volume_db = -14.0
 
 	world = World.new()
 	world.main = self
@@ -55,6 +59,15 @@ func _ready() -> void:
 	hud = Hud.new()
 	hud.main = self
 	hud_layer.add_child(hud)
+
+	var dialogue_layer := CanvasLayer.new()
+	dialogue_layer.layer = 4
+	add_child(dialogue_layer)
+	dialogue = Dialogue.new()
+	dialogue.main = self
+	dialogue.visible = false
+	dialogue.finished.connect(_on_dialogue_finished)
+	dialogue_layer.add_child(dialogue)
 
 	var combat_layer := CanvasLayer.new()
 	combat_layer.layer = 5
@@ -102,6 +115,7 @@ func set_state(s: String) -> void:
 	hud.visible = s == "explore" or s == "phone"
 	combat.visible = s == "combat"
 	phone.visible = s == "phone"
+	dialogue.visible = s == "dialogue"
 	title.visible = s == "title"
 	if s == "explore" or s == "title":
 		if not music.playing:
@@ -140,6 +154,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				world.handle_key(k)
 		"phone":
 			phone.handle_key(k)
+		"dialogue":
+			dialogue.handle_key(k)
 		"combat":
 			combat.handle_key(k)
 
@@ -166,6 +182,7 @@ func new_game() -> void:
 	money = 0
 	messages = []
 	taken = []
+	flags = {}
 	world.reset(null)
 	set_state("explore")
 	toast("Missão: voltar para casa")
@@ -178,7 +195,7 @@ func has_save() -> bool:
 func save_game() -> void:
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	f.store_string(JSON.stringify({
-		"hp": hp, "money": money, "messages": messages, "taken": taken,
+		"hp": hp, "money": money, "messages": messages, "taken": taken, "flags": flags,
 		"pos": [world.player_pos.x, world.player_pos.y], "volume": volume,
 	}))
 
@@ -193,6 +210,7 @@ func load_game() -> void:
 	money = int(d.get("money", 0))
 	messages = d.get("messages", [])
 	taken = d.get("taken", [])
+	flags = d.get("flags", {})
 	set_volume(d.get("volume", volume))
 	stamina = MAX_STAMINA
 	var p: Array = d.get("pos", [])
@@ -210,6 +228,18 @@ func on_signal_point() -> void:
 		m["lida"] = false
 		messages.append(m)
 		toast("Nova mensagem no celular [Tab]")
+
+
+# ---------- diálogo ----------
+
+func start_dialogue(id: String) -> void:
+	if dialogue.start(id):
+		set_state("dialogue")
+
+
+func _on_dialogue_finished(_id: String) -> void:
+	set_state("explore")
+	world.invuln = maxf(world.invuln, 0.6)
 
 
 # ---------- combate ----------

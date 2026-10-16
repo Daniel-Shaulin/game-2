@@ -1,0 +1,18 @@
+[
+	{"se": "falou_com_teste", "ir": "de_novo"},
+	{"quem": "Figura de teste", "texto": "Este é um diálogo de teste. Aperte E, Espaço, Enter ou clique para continuar."},
+	{"quem": "Figura de teste", "texto": "Enquanto as letras aparecem, apertar uma vez mostra a frase inteira de uma vez. Frases longas quebram a linha sozinhas dentro da caixa."},
+	{"quem": "Figura de teste", "texto": "Agora uma escolha. Use W e S (ou as setas) e confirme.", "escolhas": [
+		{"texto": "Primeira opção", "ir": "opcao_1"},
+		{"texto": "Segunda opção", "ir": "opcao_2"}
+	]},
+	{"id": "opcao_1"},
+	{"quem": "Figura de teste", "texto": "Você escolheu a primeira opção.", "ir": "fim"},
+	{"id": "opcao_2"},
+	{"quem": "Figura de teste", "texto": "Você escolheu a segunda opção."},
+	{"id": "fim"},
+	{"marcar": "falou_com_teste"},
+	{"quem": "Branca", "texto": "...", "fim": true},
+	{"id": "de_novo"},
+	{"quem": "Figura de teste", "texto": "Já conversamos. Depois da primeira vez este diálogo muda, porque o jogo guardou uma marca.", "fim": true}
+]
