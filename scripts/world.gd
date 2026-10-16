@@ -45,6 +45,7 @@ var cam: Camera2D
 func _ready() -> void:
 	cam = Camera2D.new()
 	cam.zoom = Vector2(1.7, 1.7)
+	cam.process_mode = Node.PROCESS_MODE_ALWAYS  # o zoom do celular anima com o mundo pausado
 	cam.position_smoothing_enabled = true
 	cam.position_smoothing_speed = 6.0
 	add_child(cam)
@@ -472,7 +473,7 @@ func _draw_branca() -> void:
 	var bob := (sin(time * 10.0) * 1.0) if moving else 0.0
 	var flip := -1.0 if iso(facing).x < 0 else 1.0
 	_shadow(s, 9.0)
-	if invuln > 0.0 and fmod(time, 0.2) < 0.1:
+	if invuln > 0.0 and fmod(time, 0.2) < 0.1 and main.state == "explore":
 		return
 	var o := s + Vector2(0, bob)
 	var dress := Color(0.85, 0.85, 0.8)

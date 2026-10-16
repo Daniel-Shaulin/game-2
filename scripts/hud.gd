@@ -36,6 +36,8 @@ func _draw() -> void:
 	_text(Vector2(1040, 34), "Missão: voltar para casa", 16, Color(0.75, 0.75, 0.72), HORIZONTAL_ALIGNMENT_RIGHT, 216)
 	if main.messages.any(func(m): return not m.get("lida", false)):
 		_text(Vector2(1040, 58), "Nova mensagem [Tab]", 15, Color(0.5, 0.9, 1.0), HORIZONTAL_ALIGNMENT_RIGHT, 216)
+	if main.state == "phone":
+		return  # o celular ocupa a tela; dicas e avisos voltam ao fechar
 	if main.world.hint != "":
 		_text(Vector2(0, 560), main.world.hint, 20, Color(0.95, 0.95, 0.9), HORIZONTAL_ALIGNMENT_CENTER, 1280)
 	var y := 610.0

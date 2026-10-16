@@ -1,4 +1,4 @@
-# Protótipo (Godot 4.4.1)
+# Protótipo (Godot 4.7.2)
 
 Fatia jogável do ciclo principal: exploração isométrica, inimigo que patrulha e persegue, lanterna que atordoa,
 armário para se esconder, dinheiro no chão, ponto de sinal (salva e recebe mensagem), celular como menu e
@@ -6,7 +6,7 @@ combate rítmico (pistas D F J K + círculos de clique). Toda a arte, música e 
 
 ## Rodar
 - Windows: `build/Prototipo-windows.zip`, extrair e abrir `Prototipo.exe`.
-- Editor: abrir esta pasta na Godot 4.4.1.
+- Editor: abrir esta pasta na Godot 4.7.2.
 
 ## Pastas
 - `scripts/` código (main, world = exploração, combat = combate, phone = celular, hud, title, data = mapa e inimigos)

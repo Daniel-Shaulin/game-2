@@ -84,8 +84,19 @@ func _ready() -> void:
 	set_state("title")
 
 
+const ZOOM_NORMAL := Vector2(1.7, 1.7)
+const ZOOM_PHONE := Vector2(3.0, 3.0)
+var cam_tween: Tween
+
+
 func set_state(s: String) -> void:
+	var prev := state
 	state = s
+	if s == "phone" and prev == "explore":
+		_phone_camera(true)
+		world.queue_redraw()  # garante a Branca visível no quadro congelado
+	elif prev == "phone":
+		_phone_camera(false)
 	world.process_mode = Node.PROCESS_MODE_INHERIT if s == "explore" else Node.PROCESS_MODE_DISABLED
 	world.visible = s != "combat"
 	hud.visible = s == "explore" or s == "phone"
@@ -95,6 +106,16 @@ func set_state(s: String) -> void:
 	if s == "explore" or s == "title":
 		if not music.playing:
 			music.play()
+
+
+# Zoom da câmera na Branca enquanto o celular está aberto.
+func _phone_camera(open: bool) -> void:
+	if cam_tween:
+		cam_tween.kill()
+	cam_tween = create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	cam_tween.tween_property(world.cam, "zoom", ZOOM_PHONE if open else ZOOM_NORMAL, 0.4)
+	cam_tween.tween_property(world.cam, "offset", Vector2(80, -12) if open else Vector2.ZERO, 0.4)
+	cam_tween.tween_property(phone, "slide", 1.0 if open else 0.0, 0.3)
 
 
 func _process(delta: float) -> void:

@@ -5,8 +5,6 @@ extends SceneTree
 var main
 var out := "user://"
 var autoplay := false
-var miss_every := 0
-var count := 0
 
 
 func _initialize() -> void:
@@ -39,21 +37,7 @@ func key(k: int, down: bool) -> void:
 
 
 func _tick() -> void:
-	if not autoplay or main.state != "combat":
-		return
-	var c = main.combat
-	if c.state != "play":
-		return
-	for n in c.notes:
-		if n.done or abs(n.t - c.lt) > 0.02:
-			continue
-		count += 1
-		if miss_every > 0 and count % miss_every == 0:
-			continue
-		if n.k == "l":
-			c.handle_key(c.LANE_KEYS[int(n.lane)])
-		else:
-			c._hit(n, abs(n.t - c.lt), Vector2(n.x, n.y))
+	main.combat.autoplay = autoplay
 
 
 func _run() -> void:
@@ -82,8 +66,17 @@ func _run() -> void:
 	print("estado: ", main.state)
 	await wait(4.0)
 	autoplay = true
-	miss_every = 6
 	await shot("04_combate")
+	var w := 0.0
+	while main.combat.mode != "osu" and w < 30.0:
+		await wait(0.1)
+		w += 0.1
+	await wait(1.2)
+	await shot("04b_modo_mira")
+	while not main.combat.notes.any(func(n): return n.k == "s" and n.held) and w < 40.0:
+		await wait(0.05)
+		w += 0.05
+	await shot("04c_slider")
 	var t := 0.0
 	while main.state == "combat" and t < 90.0:
 		await wait(0.5)
@@ -107,7 +100,6 @@ func _run() -> void:
 	await wait(3.5)
 	print("recomeçou: vida=", main.hp, " estado=", main.combat.state)
 	autoplay = true
-	miss_every = 4
 	await wait(5.0)
 	await shot("07_combate_b")
 	t = 0.0
@@ -127,9 +119,11 @@ func _run() -> void:
 	main.world.handle_key(KEY_E)
 	print("escondida: ", main.world.escondida)
 	main.world.handle_key(KEY_E)
+	await wait(1.0)
+	await shot("08b_antes_do_celular")
 	# celular
 	main._unhandled_input(_key_event(KEY_TAB))
-	await wait(0.3)
+	await wait(0.6)
 	await shot("09_celular")
 	main.phone.handle_key(KEY_ENTER)
 	main.phone.handle_key(KEY_ENTER)
