@@ -64,7 +64,7 @@ func _ready() -> void:
 
 func start(e: Dictionary, start_hp: float) -> void:
 	enemy = e
-	kind = Data.ENEMIES[e.kind]
+	kind = main.enemy_types[e.kind]
 	var f := FileAccess.open(kind.notas, FileAccess.READ)
 	var chart: Dictionary = JSON.parse_string(f.get_as_text())
 	loop_len = chart.length

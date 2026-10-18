@@ -4,6 +4,8 @@ extends Control
 
 signal finished(id: String)
 
+const Areas := preload("res://scripts/areas.gd")
+
 const BOX := Rect2(160, 516, 960, 172)
 const CHARS_PER_SEC := 45.0
 const BONE := Color(0.78, 0.74, 0.66)
@@ -72,9 +74,9 @@ func _style(bg: Color, border: Color, bw: int, radius: int, padx := 0, pady := 0
 	return s
 
 
-# Abre o diálogo res://dialogos/<id>.json. Retorna false se o arquivo não existir.
+# Abre o diálogo res://dialogos/<id>.json (ou um caminho res:// completo). Retorna false se o arquivo não existir.
 func start(id: String) -> bool:
-	var path := "res://dialogos/%s.json" % id
+	var path := Areas.path_for("dialogos", id)
 	if not FileAccess.file_exists(path):
 		push_error("Diálogo não encontrado: " + path)
 		return false

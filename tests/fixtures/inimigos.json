@@ -1,0 +1,20 @@
+{
+	"a": {
+		"nome": "Inimigo de teste 1",
+		"musica": "res://tests/fixtures/audio/combate_a.wav",
+		"notas": "res://tests/fixtures/audio/combate_a.json",
+		"dano_erro": 6.0,
+		"recompensa": [8, 15],
+		"cor_olhos": [1.0, 0.55, 0.2],
+		"altura": 64.0
+	},
+	"b": {
+		"nome": "Inimigo de teste 2",
+		"musica": "res://tests/fixtures/audio/combate_b.wav",
+		"notas": "res://tests/fixtures/audio/combate_b.json",
+		"dano_erro": 7.0,
+		"recompensa": [10, 18],
+		"cor_olhos": [0.75, 0.9, 1.0],
+		"altura": 52.0
+	}
+}

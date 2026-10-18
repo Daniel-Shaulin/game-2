@@ -1,0 +1,7 @@
+[
+	{"tela": "preta", "tempo": 0.4},
+	{"texto": "Texto na tela preta\n(segunda linha)", "tempo": 1.6},
+	{"tela": "normal", "tempo": 0.4},
+	{"marcar": "entrou_na_sala_2"},
+	{"missao": "testar as cenas"}
+]

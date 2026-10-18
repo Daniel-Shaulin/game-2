@@ -1,0 +1,17 @@
+{
+	"nome": "Casa da Nanshe",
+	"musica": "res://audio/lago.wav",
+	"mapa": [
+		"##########",
+		"#L..m...L#",
+		"#........#",
+		"#C......W#",
+		"#........#",
+		"#........#",
+		"#........#",
+		"####..####"
+	],
+	"pontos": {"inicio": [4, 6], "porta": [4, 6]},
+	"npcs": [{"id": "nanshe", "nome": "Nanshe", "x": 6, "y": 3, "se": "acordou"}],
+	"saidas": [{"x": 4, "y": 7, "w": 2, "h": 1, "para": "margem_do_lago", "ponto": "porta"}]
+}

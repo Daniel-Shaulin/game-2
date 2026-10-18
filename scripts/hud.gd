@@ -46,7 +46,8 @@ func _draw() -> void:
 			label += " %d/%d" % [int(main.effects.amuleto), Data.EFEITOS.amuleto.cargas]
 		_text(Vector2(x + 22, 112), label, 15, Color(0.8, 0.78, 0.74))
 		x += 40 + ThemeDB.fallback_font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x
-	_text(Vector2(1040, 34), "Missão: voltar para casa", 16, Color(0.75, 0.75, 0.72), HORIZONTAL_ALIGNMENT_RIGHT, 216)
+	if main.missao != "":
+		_text(Vector2(1040, 34), "Missão: " + main.missao, 16, Color(0.75, 0.75, 0.72), HORIZONTAL_ALIGNMENT_RIGHT, 216)
 	if main.messages.any(func(m): return not m.get("lida", false)):
 		_text(Vector2(1040, 58), "Nova mensagem [Tab]", 15, Color(0.5, 0.9, 1.0), HORIZONTAL_ALIGNMENT_RIGHT, 216)
 	if main.state == "phone":
