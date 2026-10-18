@@ -14,7 +14,7 @@ const Areas := preload("res://scripts/areas.gd")
 
 const SAVE_PATH := "user://save.json"
 const START_AREA := "margem_do_lago"  # onde o jogo começa
-const START_CENA := ""  # cena de abertura (passo 16 do plano, escrita com o Daniel)
+const START_CENA := "abertura"  # cena de abertura (cenas/abertura.json)
 const MAX_HP := 100.0
 const MAX_STAMINA := 100.0
 const DEATH_PENALTY := 0.25  # parte do dinheiro perdida a cada morte na luta
@@ -56,7 +56,7 @@ func _ready() -> void:
 	music.volume_db = -6.0
 	music.finished.connect(func(): if state != "combat": music.play())
 	add_child(music)
-	for n in ["acerto", "erro", "lanterna", "moeda", "sinal", "clique", "alerta", "fala", "item", "curar", "absorver"]:
+	for n in ["acerto", "erro", "lanterna", "moeda", "sinal", "clique", "alerta", "fala", "item", "curar", "absorver", "queda"]:
 		var p := AudioStreamPlayer.new()
 		p.stream = load("res://audio/%s.wav" % n)
 		add_child(p)

@@ -47,8 +47,7 @@ func _run() -> void:
 	await wait(1.0)
 	await shot("01_titulo")
 	main.new_game()
-	await wait(1.2)
-	await shot("02_inicio_do_jogo")
+	await _teste_abertura()
 	print("jogo começa em: ", main.area_id, " missão: '", main.missao, "' tipos de inimigo: ", main.enemy_types.keys())
 	# daqui em diante, a área de teste com tudo em uso
 	main.enemy_types.merge(Areas.load_enemy_types("res://tests/fixtures/inimigos.json"))
@@ -228,6 +227,53 @@ func _teste_areas_e_cenas() -> void:
 	await wait(1.5)
 	print("voltou para: ", wd.area.get("nome"), " em ", wd.player_pos, " estado=", main.state)
 	await shot("11g_voltou")
+
+
+# A cena de abertura na margem do lago, depois a casa da Nanshe.
+func _teste_abertura() -> void:
+	var wd = main.world
+	await wait(0.3)
+	print("abertura: cena=", main.cena.running, " tela preta=", main.cena.black, " pose=", wd.player_pose)
+	await wait(7.0)
+	await shot("02a_abertura_despertar")
+	await wait(3.2)
+	await shot("02b_abertura_sentada")
+	var t := 0.0
+	while main.cena.running != "" and t < 40.0:
+		await wait(0.2)
+		t += 0.2
+		if t > 2.0 and t < 2.3:
+			await shot("02c_abertura_nanshe_andando")
+	print("abertura terminou: estado=", main.state, " marca acordou=", main.flags.get("acordou", false), " nanshe oculta=", wd.npcs[0].get("oculto", false))
+	await wait(1.0)
+	await shot("02d_margem")
+	# perto da pedra de runa, dos ossos e da água
+	wd.player_pos = Vector2(14.5, 11.5)
+	await wait(1.0)
+	await shot("02e_margem_ossos")
+	wd.player_pos = Vector2(21.5, 21.5)
+	await wait(1.0)
+	await shot("02f_margem_sinal")
+	print("dica no sinal: ", wd.hint)
+	# casa da Nanshe
+	wd.player_pos = Vector2(22.5, 13.6)
+	await wait(1.0)
+	await shot("02g_porta_da_casa")
+	wd.player_pos = Vector2(22.5, 12.5)
+	await wait(1.6)
+	print("entrou em: ", main.area_id, " estado=", main.state, " nanshe aqui=", wd.npcs.size())
+	await shot("02h_casa_da_nanshe")
+	wd.player_pos = Vector2(1.5, 4.4)
+	await wait(0.3)
+	print("dica perto da cama: ", wd.hint)
+	wd.handle_key(KEY_E)
+	await wait(0.3)
+	await shot("02i_debaixo_da_cama")
+	print("escondida debaixo da cama: ", wd.escondida)
+	wd.handle_key(KEY_E)
+	wd.player_pos = Vector2(4.5, 7.5)
+	await wait(1.6)
+	print("voltou para: ", main.area_id, " em ", wd.player_pos)
 
 
 # Pega item do chão, testa o inventário cheio, o baú e o curativo pelo celular.

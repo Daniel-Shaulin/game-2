@@ -16,12 +16,24 @@ A coluna é o `x` e a linha é o `y`, contando do zero a partir do canto de cima
 | `W` | Armário para se esconder |
 | `S` | Ponto de sinal (salva o jogo) |
 | `B` | Baú (fica ao lado de um ponto de sinal) |
+| `C` | Cama (a Branca se esconde embaixo) |
+| `o` | Pedra solta |
+| `X` | Ossos enormes saindo da terra |
+| `r` | Raízes secas de uma árvore morta |
+| `R` | Pedra de runa (luz laranja; algumas falham) |
+| `L` | Luminária de runa (luz quente, dentro de casa) |
+| `m` | Mesa |
+
+As paredes da última linha e da última coluna (a frente do mapa) ficam baixas, para não esconder a Branca.
 
 ## Campos
 
 | Campo | Exemplo | O que faz |
 | --- | --- | --- |
 | `nome` | `"Margem do lago"` | Nome da área (para quem lê o arquivo). |
+| `estilo` | `"exterior"` | `exterior`: `#` vira pedra viva e a água fica escura. `interior` (padrão): paredes de pedra. |
+| `nevoa` | `true` | Névoa baixa passando sobre a água. |
+| `construcoes` | `[{"tipo": "casa", "x": 21, "y": 9, "w": 3, "h": 3}]` | Construções de várias casas (a casa da Nanshe). A porta fica na parede da esquerda. |
 | `musica` | `"res://audio/ambiente.wav"` | Música ao entrar. Sem o campo, continua a que estava tocando. |
 | `pontos` | `{"inicio": [12, 10]}` | Lugares com nome onde a Branca pode aparecer. `inicio` é o padrão. |
 | `dinheiro` | `[[13, 8], [6, 11]]` | Dinheiro no chão (10 cada). Some de vez depois de pego. |
@@ -36,6 +48,8 @@ A coluna é o `x` e a linha é o `y`, contando do zero a partir do canto de cima
 {"id": "nanshe", "nome": "Nanshe", "dialogo": "nanshe_1", "x": 12, "y": 6, "se": "marca", "se_nao": "outra_marca"}
 ```
 - `dialogo` abre `dialogos/<id>.json`; trocar por `"cena": "<id>"` roda uma cena de `cenas/` no lugar.
+  Sem nenhum dos dois, o personagem fica na área mas ainda não conversa.
+- `pose` (opcional): pose inicial, como nas cenas. O personagem com `"id": "nanshe"` usa o desenho da Nanshe.
 - `se` (opcional): o personagem só aparece se a marca existir. `se_nao`: some quando a marca existir.
 
 ### Inimigos (`inimigos`)

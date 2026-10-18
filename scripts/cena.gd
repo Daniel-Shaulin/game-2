@@ -43,6 +43,9 @@ func _draw() -> void:
 func fade(to: float, time := 0.5) -> void:
 	if tween:
 		tween.kill()
+	if time <= 0.0:
+		black = to
+		return
 	tween = create_tween()
 	tween.tween_property(self, "black", to, time)
 	await tween.finished
@@ -89,6 +92,8 @@ func _step(s: Dictionary) -> void:
 		await tw.finished
 	elif s.has("mover"):
 		await _move(s.mover, _pos(s.para), float(s.get("velocidade", 2.0)))
+	elif s.has("pose"):
+		_set_pose(s.get("quem", "branca"), s.pose)
 	elif s.has("posicionar"):
 		_set_actor(s.posicionar, _pos(s.em))
 	elif s.has("esconder"):
@@ -134,6 +139,15 @@ func _set_actor(who: String, p: Vector2) -> void:
 			n.pos = p
 
 
+func _set_pose(who: String, pose: String) -> void:
+	if who == "branca":
+		main.world.player_pose = pose
+	else:
+		var n := _npc(who)
+		if not n.is_empty():
+			n["pose"] = pose
+
+
 func _actor_visible(who: String, v: bool) -> void:
 	if who == "branca":
 		main.world.player_hidden = not v
@@ -154,8 +168,12 @@ func _move(who: String, to: Vector2, speed: float) -> void:
 	if who == "branca":
 		wd.facing = (to - from).normalized()
 		wd.moving = true
+	else:
+		n["left"] = wd.iso(to).x < wd.iso(from).x
 	var tw := create_tween()
 	tw.tween_method(func(p: Vector2): _set_actor(who, p), from, to, dur)
 	await tw.finished
 	if who == "branca":
 		wd.moving = false
+	else:
+		n.erase("left")

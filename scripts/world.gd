@@ -1,10 +1,12 @@
 # Exploração isométrica de uma área: mapa, Branca, inimigos, lanterna, esconderijos, sinal, baú,
-# itens, dinheiro e saídas para outras áreas. A arte ainda é desenhada por código até chegarem os sprites.
+# itens, dinheiro e saídas para outras áreas. A arte ainda é desenhada por código até chegarem os sprites;
+# o cenário de Kurnugi (margem do lago, casa da Nanshe) fica em scripts/cenario.gd.
 extends Node2D
 
 const Data := preload("res://scripts/data.gd")
 const Itens := preload("res://scripts/itens.gd")
 const Areas := preload("res://scripts/areas.gd")
+const Cenario := preload("res://scripts/cenario.gd")
 
 const TW := 64.0
 const TH := 32.0
@@ -35,6 +37,11 @@ var facing := Vector2(1, 1).normalized()
 var moving := false
 var escondida := false
 var player_hidden := false  # some durante uma cena
+var player_pose := "em_pe"  # "em_pe", "sentada" ou "deitada" (cenas)
+var estilo := "interior"  # "exterior" = pedra viva e água escura; "interior" = paredes de pedra
+var lights: Array = []  # luzes do cenário: pedras de runa, luminárias, janelas
+var houses: Array = []  # construções que ocupam várias casas
+var mist_spots: Array = []
 var hide_tile := Vector2i()
 var invuln := 0.0
 var flash_t := 0.0
@@ -73,10 +80,38 @@ func load_area(id: String, pos = null, ponto := "inicio") -> void:
 	npcs = []
 	pickups = []
 	exits = []
+	lights = []
+	houses = []
+	mist_spots = []
+	estilo = area.get("estilo", "interior")
+	player_pose = "em_pe"
+	player_hidden = false
 	for row in area.mapa:
 		grid.append(String(row))
 	h = grid.size()
 	w = grid[0].length()
+	for b in area.get("construcoes", []):
+		var rect := Rect2i(int(b.x), int(b.y), int(b.get("w", 1)), int(b.get("h", 1)))
+		for j in range(rect.position.y, rect.end.y):
+			for i in range(rect.position.x, rect.end.x):
+				_set_tile(Vector2i(i, j), "H")
+		houses.append({"rect": rect, "tipo": b.get("tipo", "casa")})
+		# janela acesa na parede da direita
+		lights.append({"pos": Vector2(rect.end.x + 0.3, rect.position.y + rect.size.y * 0.45), "r": 2.6, "max": 0.45, "k": 1.0, "kind": "janela"})
+	for j in h:
+		for i in w:
+			match grid[j][i]:
+				"R": lights.append({"pos": Vector2(i + 0.5, j + 0.5), "r": 3.4, "max": 0.55, "k": 1.0, "kind": "runa", "tile": Vector2i(i, j)})
+				"L": lights.append({"pos": Vector2(i + 0.5, j + 0.5), "r": 4.5, "max": 0.7, "k": 1.0, "kind": "lampada"})
+	if area.get("nevoa", false):
+		var water: Array = []
+		for j in h:
+			for i in w:
+				if grid[j][i] == "~":
+					water.append(Vector2(i + 0.5, j + 0.5))
+		for k in mini(26, water.size()):
+			var hh := _hash(k * 7, k * 13)
+			mist_spots.append({"pos": water[(hh * 31 + k * 97) % water.size()], "r": 40.0 + hh % 50, "alpha": 0.018 + (hh % 5) * 0.004, "speed": 0.08 + (hh % 7) * 0.02, "phase": float(hh % 600) / 100.0})
 	for j in h:
 		for i in w:
 			if grid[j][i] == "S":
@@ -112,7 +147,7 @@ func load_area(id: String, pos = null, ponto := "inicio") -> void:
 	# runas que brilham em algumas paredes (pedra viva com máquinas de runas)
 	for j in h:
 		for i in w:
-			if grid[j][i] == "#" and _hash(i, j) % 11 == 0 and _is_visible_wall(i, j):
+			if estilo == "interior" and grid[j][i] == "#" and _hash(i, j) % 11 == 0 and _is_visible_wall(i, j):
 				runes.append(Vector2i(i, j))
 	var pontos: Dictionary = area.get("pontos", {})
 	player_pos = pos if pos != null else _tile_center(pontos.get(ponto, pontos.get("inicio", [1, 1])))
@@ -186,6 +221,11 @@ func line_of_sight(a: Vector2, b: Vector2) -> bool:
 
 func _process(delta: float) -> void:
 	time += delta
+	for lt in lights:
+		match lt.kind:
+			"runa": lt.k = Cenario.rune_level(self, lt.tile)
+			"lampada": lt.k = 0.85 + 0.15 * sin(time * 2.6)
+			_: lt.k = 0.8 + 0.2 * sin(time * 1.1)
 	if main.state == "cena":
 		# numa cena quem move a câmera e os personagens é a própria cena
 		queue_redraw()
@@ -346,7 +386,7 @@ func _nearby(kind: String) -> Vector2i:
 func _npc_near() -> Dictionary:
 	var t := _nearby("N")
 	for n in npcs:
-		if n.tile == t and not n.get("oculto", false):
+		if n.tile == t and not n.get("oculto", false) and (n.data.has("dialogo") or n.data.has("cena")):
 			return n
 	return {}
 
@@ -402,7 +442,7 @@ func _interact() -> void:
 	if not p.is_empty():
 		_pick_up(p)
 		return
-	var wd := _nearby("W")
+	var wd := _hide_spot()
 	if wd.x >= 0:
 		escondida = true
 		hide_tile = wd
@@ -416,15 +456,27 @@ func _interact() -> void:
 		main.on_signal_point()
 
 
+# Armário ou cama (a Branca se esconde embaixo), o que estiver mais perto.
+func _hide_spot() -> Vector2i:
+	var a := _nearby("W")
+	var b := _nearby("C")
+	if a.x < 0:
+		return b
+	if b.x < 0:
+		return a
+	var c := Vector2(0.5, 0.5)
+	return a if player_pos.distance_to(Vector2(a) + c) <= player_pos.distance_to(Vector2(b) + c) else b
+
+
 func _update_hint() -> void:
 	if escondida:
-		hint = "[E] Sair do armário"
+		hint = "[E] Sair de debaixo da cama" if tile(hide_tile.x, hide_tile.y) == "C" else "[E] Sair do armário"
 	elif not _npc_near().is_empty():
 		hint = "[E] Conversar com " + _npc_near().data.nome
 	elif not _pickup_near().is_empty():
 		hint = "[E] Pegar " + Data.ITENS[_pickup_near().id].nome.to_lower()
-	elif _nearby("W").x >= 0:
-		hint = "[E] Esconder-se no armário"
+	elif _hide_spot().x >= 0:
+		hint = "[E] Esconder-se debaixo da cama" if tile(_hide_spot().x, _hide_spot().y) == "C" else "[E] Esconder-se no armário"
 	elif _chest_first():
 		hint = "[E] Abrir o baú"
 	elif _nearby("S").x >= 0:
@@ -436,11 +488,15 @@ func _update_hint() -> void:
 # ---------- desenho (provisório) ----------
 
 func light_at(p: Vector2) -> float:
-	var l := clampf(1.15 - p.distance_to(player_pos) / 5.0, 0.06, 1.0)
+	var l := clampf(1.15 - p.distance_to(player_pos) / 5.0, 0.16 if estilo == "exterior" else 0.08, 1.0)  # fora, um pouco de luz fria do céu
 	for s in signals:
 		l = maxf(l, clampf(0.55 - p.distance_to(s) / 3.5, 0.0, 0.55))
 	for r in runes:
 		l = maxf(l, clampf(0.4 - p.distance_to(Vector2(r.x + 0.5, r.y + 0.5)) / 3.0, 0.0, 0.4))
+	for lt in lights:
+		var d: float = p.distance_to(lt.pos)
+		if d < lt.r:
+			l = maxf(l, lt.max * lt.k * (1.0 - d / lt.r))
 	if flash_t > 0.0:
 		var v := p - player_pos
 		if v.length() < FLASH_RANGE + 1.0 and v.length() > 0.01 and abs(facing.angle_to(v)) < FLASH_ANGLE + 0.15:
@@ -476,7 +532,12 @@ func _draw() -> void:
 				continue
 			var center := Vector2(i + 0.5, j + 0.5)
 			var l := light_at(center)
-			if c == "~":
+			if estilo == "exterior":
+				if c == "~":
+					Cenario.water_tile(self, i, j, l)
+				else:
+					Cenario.floor_tile(self, i, j, l)
+			elif c == "~":
 				var wave := 0.5 + 0.5 * sin(time * 1.3 + i * 0.7 + j * 1.1)
 				draw_colored_polygon(diamond(center), shade(Color(0.07, 0.11, 0.16).lerp(Color(0.1, 0.16, 0.22), wave), l))
 			else:
@@ -506,6 +567,11 @@ func _draw() -> void:
 				items.append([i + j + 0.9, "signal", Vector2i(i, j)])
 			elif c == "B":
 				items.append([i + j + 1.0, "chest", Vector2i(i, j)])
+			elif c in ["o", "X", "r", "R", "C", "m", "L"]:
+				items.append([i + j + 1.0, c, Vector2i(i, j)])
+	for b in houses:
+		var hr: Rect2i = b.rect
+		items.append([hr.position.x + hr.position.y + (hr.size.x + hr.size.y) * 0.5, "house", b])
 	for n in npcs:
 		if not n.get("oculto", false):
 			items.append([n.pos.x + n.pos.y, "npc", n])
@@ -521,7 +587,20 @@ func _draw() -> void:
 	items.sort_custom(func(a, b): return a[0] < b[0])
 	for it in items:
 		match it[1]:
-			"wall": _draw_block(it[2], WALL_H, Color(0.36, 0.35, 0.36), true)
+			"wall":
+				if estilo == "exterior":
+					Cenario.cliff(self, it[2])
+				else:
+					var front: bool = it[2].y == h - 1 or it[2].x == w - 1  # parede da frente fica baixa
+					_draw_block(it[2], 14.0 if front else WALL_H, Color(0.3, 0.31, 0.36), true)
+			"o": Cenario.rock(self, it[2])
+			"X": Cenario.bones(self, it[2])
+			"r": Cenario.roots(self, it[2])
+			"R": Cenario.runestone(self, it[2])
+			"C": Cenario.bed(self, it[2], escondida and hide_tile == it[2])
+			"m": Cenario.table(self, it[2])
+			"L": Cenario.lamp(self, it[2])
+			"house": Cenario.house(self, it[2].rect, false)
 			"wardrobe": _draw_wardrobe(it[2])
 			"signal": _draw_signal(it[2])
 			"coin": _draw_coin(it[2])
@@ -529,7 +608,12 @@ func _draw() -> void:
 			"chest": _draw_chest(it[2])
 			"enemy": _draw_enemy(it[2])
 			"npc": _draw_npc(it[2])
-			"player": _draw_branca()
+			"player":
+				if player_pose == "em_pe":
+					_draw_branca()
+				else:
+					Cenario.branca_pose(self, player_pos, player_pose)
+	Cenario.mist(self, mist_spots)
 	if flash_t > 0.0:
 		var o := iso(player_pos) - Vector2(0, 20)
 		var a := flash_t / 0.35
@@ -712,6 +796,11 @@ func _draw_enemy(e: Dictionary) -> void:
 
 # Figura encapuzada provisória, usada por qualquer personagem até ele ganhar sprite.
 func _draw_npc(n: Dictionary) -> void:
+	if n.data.get("id", "") == "nanshe":
+		var left: bool = n.get("left", iso(player_pos).x < iso(n.pos).x)
+		Cenario.nanshe(self, n.pos, n.get("pose", n.data.get("pose", "em_pe")), left)
+		_draw_talk_mark(n, Vector2(0, -100))
+		return
 	var s := iso(n.pos)
 	var l := maxf(light_at(n.pos), 0.18)
 	var sway := sin(time * 1.5) * 1.0
@@ -722,6 +811,11 @@ func _draw_npc(n: Dictionary) -> void:
 	draw_rect(Rect2(s + Vector2(-4 + sway, -45), Vector2(8, 8)), Color(0.04, 0.04, 0.05))
 	draw_rect(Rect2(s + Vector2(-3 + sway, -42), Vector2(2, 1)), Color(0.85, 0.8, 0.6, 0.8))
 	draw_rect(Rect2(s + Vector2(1 + sway, -42), Vector2(2, 1)), Color(0.85, 0.8, 0.6, 0.8))
+	_draw_talk_mark(n, Vector2(sway, -70))
+
+
+# Setinha sobre quem está perto o bastante para conversar.
+func _draw_talk_mark(n: Dictionary, off: Vector2) -> void:
 	if not _npc_near().is_empty() and _npc_near() == n:
-		var b := s + Vector2(sway, -70 + sin(time * 4.0) * 2.0)
+		var b := iso(n.pos) + off + Vector2(0, sin(time * 4.0) * 2.0)
 		draw_colored_polygon(PackedVector2Array([b + Vector2(-5, -4), b + Vector2(5, -4), b + Vector2(0, 3)]), Color(0.85, 0.8, 0.7, 0.9))

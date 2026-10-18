@@ -20,6 +20,7 @@ Todo passo aceita `"tempo"` em segundos (o padrão é 1).
 | `{"camera": [12, 6]}` / `{"camera": "branca"}` | Leva a câmera até uma casa ou de volta para a Branca. |
 | `{"mover": "branca", "para": [12, 8], "velocidade": 2}` | Anda em linha reta até a casa (velocidade em casas por segundo). |
 | `{"posicionar": "nanshe", "em": [10, 4]}` | Põe alguém na casa na hora. |
+| `{"pose": "deitada"}` / `{"pose": "agachada", "quem": "nanshe"}` | Muda a pose. Branca: `em_pe`, `sentada`, `deitada`. Nanshe: `em_pe`, `agachada`. Sem `quem`, vale para a Branca. |
 | `{"esconder": "nanshe"}` / `{"mostrar": "nanshe"}` | Some ou aparece. |
 | `{"dialogo": "nanshe_1"}` | Abre um diálogo de `dialogos/` e espera ele acabar. |
 | `{"marcar": "acordou"}` | Guarda uma marca (vai no save). |
