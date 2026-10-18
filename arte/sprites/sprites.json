@@ -1,0 +1,303 @@
+{
+ "armario": {
+  "ancora": [
+   32,
+   82
+  ],
+  "brilho": false
+ },
+ "arvore_0": {
+  "ancora": [
+   66,
+   120
+  ],
+  "brilho": false
+ },
+ "arvore_1": {
+  "ancora": [
+   66,
+   120
+  ],
+  "brilho": false
+ },
+ "bau": {
+  "ancora": [
+   26,
+   30
+  ],
+  "brilho": true
+ },
+ "branca_andando_0": {
+  "ancora": [
+   12,
+   45
+  ],
+  "brilho": true
+ },
+ "branca_andando_1": {
+  "ancora": [
+   12,
+   45
+  ],
+  "brilho": true
+ },
+ "branca_andando_2": {
+  "ancora": [
+   12,
+   45
+  ],
+  "brilho": true
+ },
+ "branca_andando_3": {
+  "ancora": [
+   12,
+   45
+  ],
+  "brilho": true
+ },
+ "branca_deitada": {
+  "ancora": [
+   26,
+   15
+  ],
+  "brilho": false
+ },
+ "branca_parada": {
+  "ancora": [
+   12,
+   45
+  ],
+  "brilho": true
+ },
+ "branca_sentada": {
+  "ancora": [
+   13,
+   37
+  ],
+  "brilho": true
+ },
+ "cama": {
+  "ancora": [
+   36,
+   36
+  ],
+  "brilho": false
+ },
+ "casa_nanshe": {
+  "ancora": [
+   122,
+   262
+  ],
+  "brilho": true
+ },
+ "luminaria": {
+  "ancora": [
+   15,
+   46
+  ],
+  "brilho": true
+ },
+ "mesa": {
+  "ancora": [
+   28,
+   42
+  ],
+  "brilho": false
+ },
+ "nanshe_agachada": {
+  "ancora": [
+   20,
+   62
+  ],
+  "brilho": true
+ },
+ "nanshe_em_pe": {
+  "ancora": [
+   20,
+   78
+  ],
+  "brilho": true
+ },
+ "nevoa_0": {
+  "ancora": [
+   100,
+   32
+  ],
+  "brilho": false
+ },
+ "nevoa_1": {
+  "ancora": [
+   100,
+   32
+  ],
+  "brilho": false
+ },
+ "nevoa_2": {
+  "ancora": [
+   100,
+   32
+  ],
+  "brilho": false
+ },
+ "ossos_0": {
+  "ancora": [
+   54,
+   70
+  ],
+  "brilho": false
+ },
+ "ossos_1": {
+  "ancora": [
+   48,
+   66
+  ],
+  "brilho": false
+ },
+ "parede_0": {
+  "ancora": [
+   35,
+   68
+  ],
+  "brilho": false
+ },
+ "parede_1": {
+  "ancora": [
+   35,
+   68
+  ],
+  "brilho": false
+ },
+ "parede_2": {
+  "ancora": [
+   35,
+   68
+  ],
+  "brilho": false
+ },
+ "parede_baixa_0": {
+  "ancora": [
+   35,
+   36
+  ],
+  "brilho": false
+ },
+ "parede_baixa_1": {
+  "ancora": [
+   35,
+   36
+  ],
+  "brilho": false
+ },
+ "parede_runa": {
+  "ancora": [
+   35,
+   68
+  ],
+  "brilho": true
+ },
+ "pedra_0": {
+  "ancora": [
+   24,
+   30
+  ],
+  "brilho": false
+ },
+ "pedra_1": {
+  "ancora": [
+   24,
+   30
+  ],
+  "brilho": false
+ },
+ "pedra_2": {
+  "ancora": [
+   24,
+   30
+  ],
+  "brilho": false
+ },
+ "penhasco_0": {
+  "ancora": [
+   42,
+   107
+  ],
+  "brilho": false
+ },
+ "penhasco_1": {
+  "ancora": [
+   42,
+   125
+  ],
+  "brilho": false
+ },
+ "penhasco_2": {
+  "ancora": [
+   42,
+   143
+  ],
+  "brilho": true
+ },
+ "penhasco_3": {
+  "ancora": [
+   42,
+   116
+  ],
+  "brilho": false
+ },
+ "penhasco_4": {
+  "ancora": [
+   42,
+   164
+  ],
+  "brilho": false
+ },
+ "penhasco_5": {
+  "ancora": [
+   42,
+   134
+  ],
+  "brilho": true
+ },
+ "penhasco_baixo_0": {
+  "ancora": [
+   42,
+   40
+  ],
+  "brilho": false
+ },
+ "penhasco_baixo_1": {
+  "ancora": [
+   42,
+   44
+  ],
+  "brilho": false
+ },
+ "penhasco_baixo_2": {
+  "ancora": [
+   42,
+   48
+  ],
+  "brilho": false
+ },
+ "runa_0": {
+  "ancora": [
+   16,
+   56
+  ],
+  "brilho": true
+ },
+ "runa_1": {
+  "ancora": [
+   16,
+   56
+  ],
+  "brilho": true
+ },
+ "runa_2": {
+  "ancora": [
+   16,
+   56
+  ],
+  "brilho": true
+ }
+}

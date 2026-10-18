@@ -64,9 +64,21 @@ func _ready() -> void:
 	sfx["acerto"].volume_db = -8.0
 	sfx["fala"].volume_db = -14.0
 
+	# o mundo é desenhado numa tela com metade da resolução e ampliado 2x: pixels marcados de pixel art
+	var view_box := SubViewportContainer.new()
+	view_box.stretch = true
+	view_box.stretch_shrink = PIXEL
+	view_box.set_anchors_preset(Control.PRESET_FULL_RECT)
+	view_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	view_box.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	add_child(view_box)
+	var view := SubViewport.new()
+	view.snap_2d_transforms_to_pixel = true
+	view.canvas_item_default_texture_filter = Viewport.DEFAULT_CANVAS_ITEM_TEXTURE_FILTER_NEAREST
+	view_box.add_child(view)
 	world = World.new()
 	world.main = self
-	add_child(world)
+	view.add_child(world)
 
 	var hud_layer := CanvasLayer.new()
 	hud_layer.layer = 2
@@ -127,8 +139,9 @@ func _ready() -> void:
 	set_state("title")
 
 
-const ZOOM_NORMAL := Vector2(1.7, 1.7)
-const ZOOM_PHONE := Vector2(3.0, 3.0)
+const PIXEL := 2  # cada pixel do mundo ocupa 2x2 pixels da tela
+const ZOOM_NORMAL := Vector2(1.0, 1.0)
+const ZOOM_PHONE := Vector2(1.75, 1.75)
 var cam_tween: Tween
 
 
@@ -158,7 +171,7 @@ func _phone_camera(open: bool) -> void:
 		cam_tween.kill()
 	cam_tween = create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	cam_tween.tween_property(world.cam, "zoom", ZOOM_PHONE if open else ZOOM_NORMAL, 0.4)
-	cam_tween.tween_property(world.cam, "offset", Vector2(80, -12) if open else Vector2.ZERO, 0.4)
+	cam_tween.tween_property(world.cam, "offset", Vector2(46, -7) if open else Vector2.ZERO, 0.4)
 	cam_tween.tween_property(phone, "slide", 1.0 if open else 0.0, 0.3)
 
 
