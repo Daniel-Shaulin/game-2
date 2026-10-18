@@ -1,16 +1,17 @@
 # Exploração isométrica de uma área: mapa, Branca, inimigos, lanterna, esconderijos, sinal, baú,
-# itens, dinheiro e saídas para outras áreas. A arte ainda é desenhada por código até chegarem os sprites;
-# o cenário de Kurnugi (margem do lago, casa da Nanshe) fica em scripts/cenario.gd.
+# itens, dinheiro e saídas para outras áreas. O cenário de Kurnugi e os personagens são sprites em pixel
+# (arte/sprites, scripts/arte.gd); qual sprite vai em cada casa fica em scripts/cenario.gd.
 extends Node2D
 
 const Data := preload("res://scripts/data.gd")
 const Itens := preload("res://scripts/itens.gd")
 const Areas := preload("res://scripts/areas.gd")
 const Cenario := preload("res://scripts/cenario.gd")
+const Luzes := preload("res://scripts/luzes.gd")
+const Arte := preload("res://scripts/arte.gd")
 
 const TW := 64.0
 const TH := 32.0
-const WALL_H := 46.0
 const WALK := 3.0
 const RUN := 4.8
 const RUN_COST := 22.0
@@ -42,6 +43,7 @@ var estilo := "interior"  # "exterior" = pedra viva e água escura; "interior" =
 var lights: Array = []  # luzes do cenário: pedras de runa, luminárias, janelas
 var houses: Array = []  # construções que ocupam várias casas
 var mist_spots: Array = []
+var chao: Texture2D  # chão pintado da área (arte/areas/<id>_chao.png), se existir
 var hide_tile := Vector2i()
 var invuln := 0.0
 var flash_t := 0.0
@@ -55,16 +57,20 @@ var pickups: Array = []  # itens no chão
 var time := 0.0
 var hint := ""
 var cam: Camera2D
+var luzes: Node2D
 
 
 func _ready() -> void:
 	cam = Camera2D.new()
-	cam.zoom = Vector2(1.7, 1.7)
+	cam.zoom = Vector2(1.0, 1.0)  # a tela do mundo já é desenhada com pixels de 2x2 (main.gd)
 	cam.process_mode = Node.PROCESS_MODE_ALWAYS  # o zoom do celular anima com o mundo pausado
 	cam.position_smoothing_enabled = true
 	cam.position_smoothing_speed = 6.0
 	add_child(cam)
 	cam.make_current()
+	luzes = Luzes.new()
+	luzes.wd = self
+	add_child(luzes)
 
 
 # Carrega a área (res://areas/<id>.json) e põe a Branca em `pos` (posição no mundo) ou no ponto `ponto`.
@@ -84,6 +90,8 @@ func load_area(id: String, pos = null, ponto := "inicio") -> void:
 	houses = []
 	mist_spots = []
 	estilo = area.get("estilo", "interior")
+	var chao_path := "res://arte/areas/%s_chao.png" % id.get_file().get_basename()
+	chao = load(chao_path) if ResourceLoader.exists(chao_path) else null
 	player_pose = "em_pe"
 	player_hidden = false
 	for row in area.mapa:
@@ -156,6 +164,7 @@ func load_area(id: String, pos = null, ponto := "inicio") -> void:
 	exit_lock = true  # quem chega por uma saída não volta por ela na hora
 	cam.position = iso(player_pos)
 	cam.reset_smoothing()
+	luzes.rebuild()
 	queue_redraw()
 
 
@@ -504,10 +513,16 @@ func light_at(p: Vector2) -> float:
 	return l
 
 
-func shade(c: Color, l: float) -> Color:
-	# luz fria e baixa: escurece puxando para azul-marinho
-	var dark := Color(0.02, 0.025, 0.05)
-	return dark.lerp(c, l)
+# Cor para o que brilha no escuro (runas, janelas, olhos, névoa): desfaz boa parte do escuro da área,
+# deixando folga para a luz que já cai em cima (a da própria runa) não estourar a cor. `k` é a força.
+func glow_mod(k: float) -> Color:
+	var m: Color = luzes.modulate_node.color
+	return Color(0.6 / m.r, 0.6 / m.g, 0.6 / m.b, clampf(k, 0.0, 1.0))
+
+
+# O escuro e a luz agora vêm das luzes de verdade (luzes.gd); a cor fica como é.
+func shade(c: Color, _l: float) -> Color:
+	return c
 
 
 func mul(c: Color, k: float) -> Color:
@@ -524,11 +539,15 @@ func diamond(p: Vector2, lift := 0.0, scale := 1.0) -> PackedVector2Array:
 func _draw() -> void:
 	if grid.is_empty():
 		return
-	# chão e água
+	# chão e água: pintado inteiro numa imagem só (ferramentas/gerar_arte.py) ou casa por casa
+	if chao != null:
+		draw_texture(chao, Vector2(-h * TW * 0.5, 0))
+		if estilo == "exterior":
+			Cenario.water_overlay(self)
 	for j in h:
 		for i in w:
 			var c := tile(i, j)
-			if c == "#":
+			if c == "#" or chao != null:
 				continue
 			var center := Vector2(i + 0.5, j + 0.5)
 			var l := light_at(center)
@@ -592,7 +611,7 @@ func _draw() -> void:
 					Cenario.cliff(self, it[2])
 				else:
 					var front: bool = it[2].y == h - 1 or it[2].x == w - 1  # parede da frente fica baixa
-					_draw_block(it[2], 14.0 if front else WALL_H, Color(0.3, 0.31, 0.36), true)
+					Cenario.wall(self, it[2], front, runes.has(it[2]))
 			"o": Cenario.rock(self, it[2])
 			"X": Cenario.bones(self, it[2])
 			"r": Cenario.roots(self, it[2])
@@ -601,11 +620,11 @@ func _draw() -> void:
 			"m": Cenario.table(self, it[2])
 			"L": Cenario.lamp(self, it[2])
 			"house": Cenario.house(self, it[2].rect, false)
-			"wardrobe": _draw_wardrobe(it[2])
+			"wardrobe": Cenario.wardrobe(self, it[2], escondida and hide_tile == it[2])
 			"signal": _draw_signal(it[2])
 			"coin": _draw_coin(it[2])
 			"pickup": _draw_pickup(it[2])
-			"chest": _draw_chest(it[2])
+			"chest": Cenario.chest(self, it[2])
 			"enemy": _draw_enemy(it[2])
 			"npc": _draw_npc(it[2])
 			"player":
@@ -614,48 +633,6 @@ func _draw() -> void:
 				else:
 					Cenario.branca_pose(self, player_pos, player_pose)
 	Cenario.mist(self, mist_spots)
-	if flash_t > 0.0:
-		var o := iso(player_pos) - Vector2(0, 20)
-		var a := flash_t / 0.35
-		var pts := PackedVector2Array([o])
-		for k in 9:
-			var ang := -FLASH_ANGLE + k * FLASH_ANGLE / 4.0
-			pts.append(iso(player_pos + facing.rotated(ang) * FLASH_RANGE) - Vector2(0, 20))
-		draw_colored_polygon(pts, Color(0.9, 0.95, 1.0, 0.18 * a))
-
-
-func _draw_block(t: Vector2i, height: float, col: Color, rune: bool) -> void:
-	var p := Vector2(t.x + 0.5, t.y + 0.5)
-	var l := light_at(p + Vector2(0.6, 0.6))
-	var c := iso(p)
-	var bone := _hash(t.x, t.y) % 5 == 0
-	var base := Color(0.62, 0.58, 0.5) if bone else col
-	var left := PackedVector2Array([c + Vector2(-TW / 2, 0), c + Vector2(0, TH / 2), c + Vector2(0, TH / 2 - height), c + Vector2(-TW / 2, -height)])
-	var right := PackedVector2Array([c + Vector2(0, TH / 2), c + Vector2(TW / 2, 0), c + Vector2(TW / 2, -height), c + Vector2(0, TH / 2 - height)])
-	draw_colored_polygon(left, shade(mul(base, 0.75), l))
-	draw_colored_polygon(right, shade(mul(base, 0.55), l))
-	draw_colored_polygon(diamond(p, height), shade(mul(base, 1.05), l))
-	draw_polyline(diamond(p, height), shade(mul(base, 0.4), l), 1.0)
-	if rune and runes.has(t):
-		var pulse := 0.6 + 0.4 * sin(time * 2.0 + t.x)
-		var rc := c + Vector2(TW / 4, TH / 4 - height * 0.55)
-		var amber := Color(1.0, 0.62, 0.22, pulse)
-		draw_line(rc + Vector2(-4, -6), rc + Vector2(4, 6), amber, 2.0)
-		draw_line(rc + Vector2(4, -6), rc + Vector2(-4, 6), amber, 2.0)
-		draw_line(rc + Vector2(0, -8), rc + Vector2(0, 8), amber, 1.0)
-		draw_circle(rc, 9.0, Color(1.0, 0.6, 0.2, 0.08 * pulse))
-
-
-func _draw_wardrobe(t: Vector2i) -> void:
-	_draw_block(t, 58.0, Color(0.28, 0.2, 0.16), false)
-	var c := iso(Vector2(t.x + 0.5, t.y + 0.5))
-	var l := light_at(Vector2(t.x + 1.0, t.y + 1.0))
-	draw_line(c + Vector2(-TW / 4, TH / 4 - 4), c + Vector2(-TW / 4, TH / 4 - 50), shade(Color(0.1, 0.07, 0.05), l), 2.0)
-	if escondida and hide_tile == t:
-		# olhos da Branca espiando pela fresta
-		var e := c + Vector2(-TW / 4 + 3, TH / 4 - 34)
-		draw_rect(Rect2(e, Vector2(2, 2)), Color(0.8, 0.9, 1.0, 0.8))
-		draw_rect(Rect2(e + Vector2(4, 1), Vector2(2, 2)), Color(0.8, 0.9, 1.0, 0.8))
 
 
 func _draw_signal(t: Vector2i) -> void:
@@ -687,33 +664,6 @@ func _draw_pickup(p: Dictionary) -> void:
 	Itens.draw_icon(self, p.id, c, 16.0, clampf(light_at(p.pos) + 0.35, 0.0, 1.0))
 
 
-# Baú de pedra com faixas de osso e um fecho de runa que acende como o sinal.
-func _draw_chest(t: Vector2i) -> void:
-	var p := Vector2(t.x + 0.5, t.y + 0.5)
-	var l := light_at(p + Vector2(0.6, 0.6))
-	var c := iso(p)
-	var hgt := 24.0
-	var sc := 0.62  # menor que uma casa inteira
-	var hw := TW * 0.5 * sc
-	var hh := TH * 0.5 * sc
-	var stone := Color(0.3, 0.28, 0.3)
-	var left := PackedVector2Array([c + Vector2(-hw, 0), c + Vector2(0, hh), c + Vector2(0, hh - hgt), c + Vector2(-hw, -hgt)])
-	var right := PackedVector2Array([c + Vector2(0, hh), c + Vector2(hw, 0), c + Vector2(hw, -hgt), c + Vector2(0, hh - hgt)])
-	_shadow(c + Vector2(0, 2), hw)
-	draw_colored_polygon(left, shade(mul(stone, 0.8), l))
-	draw_colored_polygon(right, shade(mul(stone, 0.6), l))
-	draw_colored_polygon(diamond(p, hgt, sc), shade(mul(stone, 1.2), l))
-	var bone := shade(Color(0.72, 0.68, 0.58), l)
-	for k in [0.3, 0.7]:
-		draw_line(c + Vector2(-hw * k, hh * (1.0 - k)) - Vector2(0, hgt * 0.98), c + Vector2(-hw * k, hh * (1.0 - k)), bone, 2.0)
-		draw_line(c + Vector2(hw * k, hh * (1.0 - k)) - Vector2(0, hgt * 0.98), c + Vector2(hw * k, hh * (1.0 - k)), bone, 2.0)
-	draw_polyline(diamond(p, hgt, sc), bone, 1.5)
-	var pulse := 0.6 + 0.4 * sin(time * 2.0)
-	var lock := c + Vector2(hw * 0.5, hh * 0.5 - hgt * 0.55)
-	draw_circle(lock, 7.0, Color(0.5, 0.9, 1.0, 0.1 * pulse))
-	draw_rect(Rect2(lock - Vector2(2, 3), Vector2(4, 6)), Color(0.5, 0.9, 1.0, 0.85 * pulse))
-
-
 func _shadow(s: Vector2, r: float) -> void:
 	draw_set_transform(s, 0.0, Vector2(1.0, 0.45))
 	draw_circle(Vector2.ZERO, r, Color(0, 0, 0, 0.45))
@@ -722,37 +672,12 @@ func _shadow(s: Vector2, r: float) -> void:
 
 func _draw_branca() -> void:
 	var s := iso(player_pos)
-	var l := light_at(player_pos)
-	var bob := (sin(time * 10.0) * 1.0) if moving else 0.0
-	var flip := -1.0 if iso(facing).x < 0 else 1.0
-	_shadow(s, 9.0)
+	_shadow(s, 8.0)
 	if invuln > 0.0 and fmod(time, 0.2) < 0.1 and main.state == "explore":
 		return
-	var o := s + Vector2(0, bob)
-	var dress := Color(0.85, 0.85, 0.8)
-	var skin := Color(0.82, 0.8, 0.78)
-	var hair := Color(0.04, 0.04, 0.05)
-	# cabelo longo (atrás)
-	draw_rect(Rect2(o + Vector2(-6, -40), Vector2(12, 26)), shade(hair, maxf(l, 0.5)))
-	# vestido branco rasgado
-	var hem := PackedVector2Array([o + Vector2(-5, -24), o + Vector2(5, -24), o + Vector2(8, -2), o + Vector2(5, 0), o + Vector2(3, -3), o + Vector2(0, 0), o + Vector2(-3, -2), o + Vector2(-6, 0), o + Vector2(-8, -3)])
-	draw_colored_polygon(hem, shade(dress, maxf(l, 0.25)))
-	# braços caídos
-	draw_rect(Rect2(o + Vector2(-8, -23), Vector2(2, 13)), shade(skin, l))
-	draw_rect(Rect2(o + Vector2(6, -23), Vector2(2, 13)), shade(skin, l))
-	# pernas e pés descalços
-	draw_rect(Rect2(o + Vector2(-3, -1), Vector2(2, 3)), shade(skin, l))
-	draw_rect(Rect2(o + Vector2(1, -1), Vector2(2, 3)), shade(skin, l))
-	# rosto quase sem traços
-	draw_rect(Rect2(o + Vector2(-3 + flip, -37), Vector2(6, 8)), shade(skin, l))
-	draw_rect(Rect2(o + Vector2(-5, -41), Vector2(10, 4)), shade(hair, maxf(l, 0.5)))
-	# chifres pequenos escondidos no cabelo
-	draw_rect(Rect2(o + Vector2(-5, -43), Vector2(2, 2)), shade(Color(0.2, 0.18, 0.18), l))
-	draw_rect(Rect2(o + Vector2(3, -43), Vector2(2, 2)), shade(Color(0.2, 0.18, 0.18), l))
-	# olhos que brilham fraco no escuro
-	var glow := Color(0.8, 0.9, 1.0, clampf(1.2 - l, 0.25, 0.9))
-	draw_rect(Rect2(o + Vector2(-2 + flip, -34), Vector2(1, 1)), glow)
-	draw_rect(Rect2(o + Vector2(1 + flip, -34), Vector2(1, 1)), glow)
+	var flip := iso(facing).x < 0
+	var name := "branca_andando_%d" % (int(time * 8.0) % 4) if moving else "branca_parada"
+	Arte.draw(self, name, s, flip)
 
 
 func _draw_enemy(e: Dictionary) -> void:
