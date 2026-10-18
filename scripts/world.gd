@@ -1,9 +1,10 @@
-# Exploração isométrica: mapa, Branca, inimigos, lanterna, esconderijos, sinal, baú, itens e dinheiro.
-# Toda a arte aqui é desenhada por código e é PROVISÓRIA.
+# Exploração isométrica de uma área: mapa, Branca, inimigos, lanterna, esconderijos, sinal, baú,
+# itens, dinheiro e saídas para outras áreas. A arte ainda é desenhada por código até chegarem os sprites.
 extends Node2D
 
 const Data := preload("res://scripts/data.gd")
 const Itens := preload("res://scripts/itens.gd")
+const Areas := preload("res://scripts/areas.gd")
 
 const TW := 64.0
 const TH := 32.0
@@ -25,11 +26,15 @@ var main
 var grid: Array = []
 var w := 0
 var h := 0
-var start_pos := Vector2()
+var area_id := ""
+var area: Dictionary = {}
+var exits: Array = []  # saídas para outras áreas
+var exit_lock := false
 var player_pos := Vector2()
 var facing := Vector2(1, 1).normalized()
 var moving := false
 var escondida := false
+var player_hidden := false  # some durante uma cena
 var hide_tile := Vector2i()
 var invuln := 0.0
 var flash_t := 0.0
@@ -55,7 +60,11 @@ func _ready() -> void:
 	cam.make_current()
 
 
-func reset(pos) -> void:
+# Carrega a área (res://areas/<id>.json) e põe a Branca em `pos` (posição no mundo) ou no ponto `ponto`.
+# Formato das áreas explicado em areas/LEIAME.md.
+func load_area(id: String, pos = null, ponto := "inicio") -> void:
+	area = Areas.load_area(id)
+	area_id = id
 	grid = []
 	coins = []
 	signals = []
@@ -63,52 +72,65 @@ func reset(pos) -> void:
 	runes = []
 	npcs = []
 	pickups = []
-	h = Data.MAP.size()
-	w = Data.MAP[0].length()
-	var coin_i := 0
+	exits = []
+	for row in area.mapa:
+		grid.append(String(row))
+	h = grid.size()
+	w = grid[0].length()
 	for j in h:
-		var row: String = Data.MAP[j]
-		var out := ""
 		for i in w:
-			var c := row[i]
-			var center := Vector2(i + 0.5, j + 0.5)
-			match c:
-				"P":
-					start_pos = center
-					c = "."
-				"$":
-					if not main.taken.has(coin_i):
-						coins.append({"pos": center, "id": coin_i})
-					coin_i += 1
-					c = "."
-				"S":
-					signals.append(center)
-				"1", "2", "3":
-					var key := "%d,%d" % [i, j]
-					if not main.taken_items.has(key):
-						pickups.append({"pos": center, "key": key, "id": Data.ITENS_NO_MAPA[c]})
-					c = "."
-				"N":
-					npcs.append({"pos": center, "tile": Vector2i(i, j), "data": Data.NPCS[c]})
-				"a", "b":
-					enemies.append({
-						"kind": c, "pos": center, "home": center, "path": Data.PATROLS[c], "path_i": 0,
-						"state": "patrol", "stun": 0.0, "alive": true, "respawn": 0.0,
-						"last_seen": center, "search_t": 0.0,
-					})
-					c = "."
-			out += c
-		grid.append(out)
+			if grid[j][i] == "S":
+				signals.append(Vector2(i + 0.5, j + 0.5))
+	for c in area.get("dinheiro", []):
+		var key := "%s:%d,%d" % [id, c[0], c[1]]
+		if not main.taken.has(key):
+			coins.append({"pos": _tile_center(c), "key": key})
+	for it in area.get("itens", []):
+		var key := "%s:%d,%d" % [id, it.x, it.y]
+		if not main.taken_items.has(key):
+			pickups.append({"pos": _tile_center([it.x, it.y]), "key": key, "id": it.id})
+	for n in area.get("npcs", []):
+		if n.has("se") and not main.flags.get(n.se, false):
+			continue
+		if n.has("se_nao") and main.flags.get(n.se_nao, false):
+			continue
+		var t := Vector2i(int(n.x), int(n.y))
+		_set_tile(t, "N")
+		npcs.append({"pos": _tile_center([n.x, n.y]), "tile": t, "data": n})
+	for e in area.get("inimigos", []):
+		var home := _tile_center([e.x, e.y])
+		var path: Array = []
+		for p in e.get("rota", [[e.x, e.y]]):
+			path.append(_tile_center(p))
+		enemies.append({
+			"kind": e.tipo, "pos": home, "home": home, "path": path, "path_i": 0,
+			"state": "patrol", "stun": 0.0, "alive": true, "respawn": 0.0,
+			"last_seen": home, "search_t": 0.0,
+		})
+	for x in area.get("saidas", []):
+		exits.append({"rect": Rect2(x.x, x.y, x.get("w", 1), x.get("h", 1)), "para": x.para, "ponto": x.get("ponto", "inicio")})
 	# runas que brilham em algumas paredes (pedra viva com máquinas de runas)
 	for j in h:
 		for i in w:
 			if grid[j][i] == "#" and _hash(i, j) % 11 == 0 and _is_visible_wall(i, j):
 				runes.append(Vector2i(i, j))
-	player_pos = pos if pos != null else start_pos
+	var pontos: Dictionary = area.get("pontos", {})
+	player_pos = pos if pos != null else _tile_center(pontos.get(ponto, pontos.get("inicio", [1, 1])))
 	escondida = false
 	invuln = 1.0
+	exit_lock = true  # quem chega por uma saída não volta por ela na hora
 	cam.position = iso(player_pos)
 	cam.reset_smoothing()
+	queue_redraw()
+
+
+func _tile_center(p) -> Vector2:
+	return Vector2(float(p[0]) + 0.5, float(p[1]) + 0.5)
+
+
+func _set_tile(t: Vector2i, c: String) -> void:
+	var row: String = grid[t.y]
+	grid[t.y] = row.substr(0, t.x) + c + row.substr(t.x + 1)
 
 
 func _hash(i: int, j: int) -> int:
@@ -164,6 +186,10 @@ func line_of_sight(a: Vector2, b: Vector2) -> bool:
 
 func _process(delta: float) -> void:
 	time += delta
+	if main.state == "cena":
+		# numa cena quem move a câmera e os personagens é a própria cena
+		queue_redraw()
+		return
 	invuln = maxf(invuln - delta, 0.0)
 	flash_t = maxf(flash_t - delta, 0.0)
 	_move_player(delta)
@@ -171,6 +197,8 @@ func _process(delta: float) -> void:
 		_update_enemy(e, delta)
 		if main.state != "explore":
 			return
+	if _check_exits():
+		return
 	_update_hint()
 	cam.position = iso(player_pos) - Vector2(0, 16)
 	queue_redraw()
@@ -203,10 +231,22 @@ func _move_player(delta: float) -> void:
 	for c in coins.duplicate():
 		if c.pos.distance_to(player_pos) < 0.6:
 			coins.erase(c)
-			main.taken.append(c.id)
+			main.taken.append(c.key)
 			main.money += 10
 			main.play_sfx("moeda")
 			main.toast("+10 de dinheiro")
+
+
+# Entrar numa saída leva para outra área. Quem acabou de chegar precisa sair da casa da saída antes.
+func _check_exits() -> bool:
+	for x in exits:
+		if x.rect.has_point(player_pos):
+			if not exit_lock:
+				main.change_area(x.para, x.ponto)
+				return true
+			return false
+	exit_lock = false
+	return false
 
 
 func _update_enemy(e: Dictionary, delta: float) -> void:
@@ -306,7 +346,7 @@ func _nearby(kind: String) -> Vector2i:
 func _npc_near() -> Dictionary:
 	var t := _nearby("N")
 	for n in npcs:
-		if n.tile == t:
+		if n.tile == t and not n.get("oculto", false):
 			return n
 	return {}
 
@@ -353,7 +393,10 @@ func _interact() -> void:
 		return
 	var npc := _npc_near()
 	if not npc.is_empty():
-		main.start_dialogue(npc.data.dialogo)
+		if npc.data.has("cena"):
+			main.start_cena(npc.data.cena)
+		else:
+			main.start_dialogue(npc.data.dialogo)
 		return
 	var p := _pickup_near()
 	if not p.is_empty():
@@ -443,6 +486,13 @@ func _draw() -> void:
 					base = Color(0.55, 0.52, 0.45)  # osso no chão
 				draw_colored_polygon(diamond(center), shade(base, l))
 				draw_polyline(diamond(center), shade(Color(0.18, 0.18, 0.21), l), 1.0)
+	# saídas: o chão brilha de leve para mostrar que dá para seguir por ali
+	for x in exits:
+		var r: Rect2 = x.rect
+		for j in range(int(r.position.y), int(r.end.y)):
+			for i in range(int(r.position.x), int(r.end.x)):
+				var a := 0.06 + 0.05 * sin(time * 2.0 + i + j)
+				draw_colored_polygon(diamond(Vector2(i + 0.5, j + 0.5), 0.0, 0.9), Color(0.75, 0.8, 0.9, a))
 	# objetos ordenados por profundidade
 	var items: Array = []
 	for j in h:
@@ -457,7 +507,8 @@ func _draw() -> void:
 			elif c == "B":
 				items.append([i + j + 1.0, "chest", Vector2i(i, j)])
 	for n in npcs:
-		items.append([n.pos.x + n.pos.y, "npc", n])
+		if not n.get("oculto", false):
+			items.append([n.pos.x + n.pos.y, "npc", n])
 	for c in coins:
 		items.append([c.pos.x + c.pos.y, "coin", c])
 	for p in pickups:
@@ -465,7 +516,7 @@ func _draw() -> void:
 	for e in enemies:
 		if e.alive:
 			items.append([e.pos.x + e.pos.y, "enemy", e])
-	if not escondida:
+	if not escondida and not player_hidden:
 		items.append([player_pos.x + player_pos.y, "player", null])
 	items.sort_custom(func(a, b): return a[0] < b[0])
 	for it in items:
@@ -536,7 +587,7 @@ func _draw_signal(t: Vector2i) -> void:
 
 func _draw_coin(c: Dictionary) -> void:
 	var s := iso(c.pos)
-	var bob := sin(time * 3.0 + c.id) * 2.0
+	var bob := sin(time * 3.0 + c.pos.x) * 2.0
 	var p := s + Vector2(0, -8 + bob)
 	draw_colored_polygon(PackedVector2Array([p + Vector2(0, -5), p + Vector2(4, 0), p + Vector2(0, 5), p + Vector2(-4, 0)]), Color(1.0, 0.7, 0.3))
 	draw_circle(p, 9.0, Color(1.0, 0.65, 0.25, 0.12))
@@ -621,7 +672,7 @@ func _draw_branca() -> void:
 
 
 func _draw_enemy(e: Dictionary) -> void:
-	var kd: Dictionary = Data.ENEMIES[e.kind]
+	var kd: Dictionary = main.enemy_types[e.kind]
 	var s := iso(e.pos)
 	var l := light_at(e.pos)
 	var hgt: float = kd.altura
@@ -659,7 +710,7 @@ func _draw_enemy(e: Dictionary) -> void:
 			draw_rect(Rect2(o + Vector2(cos(a) * 9.0, -hgt - 12 + sin(a) * 3.0), Vector2(2, 2)), Color(0.8, 0.9, 1.0))
 
 
-# Figura de teste encapuzada (provisória), parada no lugar.
+# Figura encapuzada provisória, usada por qualquer personagem até ele ganhar sprite.
 func _draw_npc(n: Dictionary) -> void:
 	var s := iso(n.pos)
 	var l := maxf(light_at(n.pos), 0.18)

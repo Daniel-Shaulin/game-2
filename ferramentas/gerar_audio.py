@@ -1,5 +1,5 @@
-# Gera as músicas, os mapas de notas e os sons PROVISÓRIOS do protótipo.
-# Uso: python3 ferramentas/gerar_audio.py  (a partir da pasta jogo/)
+# Gera os sons PROVISÓRIOS do jogo e as duas músicas de luta usadas só no teste automático.
+# Uso: python3 ferramentas/gerar_audio.py  (a partir da pasta do projeto)
 # As notas do combate saem dos mesmos eventos que geram o áudio, então ficam no tempo da música.
 import json
 import os
@@ -9,14 +9,15 @@ import numpy as np
 
 SR = 44100
 OUT = os.path.join(os.path.dirname(__file__), "..", "audio")
+TEST_OUT = os.path.join(os.path.dirname(__file__), "..", "tests", "fixtures", "audio")
 
 
-def save_wav(name, sig):
+def save_wav(name, sig, out=None):
     sig = np.tanh(sig * 1.2)
     peak = np.max(np.abs(sig)) or 1.0
     sig = sig / peak * 0.9
     data = (sig * 32767).astype(np.int16)
-    with wave.open(os.path.join(OUT, name), "wb") as w:
+    with wave.open(os.path.join(out or OUT, name), "wb") as w:
         w.setnchannels(1)
         w.setsampwidth(2)
         w.setframerate(SR)
@@ -203,8 +204,8 @@ def make_song(name, bpm, bars, sections, seed, prog, kill_ratio):
     notes.sort(key=lambda n: n["t"])
     for n in notes:
         n["t"] = round(n["t"], 4)
-    save_wav(name + ".wav", buf[: int(total * SR)])
-    with open(os.path.join(OUT, name + ".json"), "w") as f:
+    save_wav(name + ".wav", buf[: int(total * SR)], TEST_OUT)
+    with open(os.path.join(TEST_OUT, name + ".json"), "w") as f:
         json.dump({"bpm": bpm, "length": round(total, 4), "kill_ratio": kill_ratio, "notes": notes}, f)
     print(name, "duração", round(total, 1), "s, notas", len(notes))
 
@@ -262,6 +263,7 @@ def itens():
 
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
+    os.makedirs(TEST_OUT, exist_ok=True)
     # Inimigo de teste 1: rápido, mais pistas
     make_song("combate_a", 140, 22, [(2, 7, "lanes"), (8, 11, "circles"), (12, 15, "lanes"), (16, 19, "circles")],
               seed=11, prog=[4, 4, 0, 2], kill_ratio=0.7)

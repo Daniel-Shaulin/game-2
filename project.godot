@@ -1,10 +1,10 @@
-; Protótipo do jogo (Godot 4.4)
+; Jogo (Godot 4.7.2). O nome ainda não foi decidido (passo 31 do plano).
 
 config_version=5
 
 [application]
 
-config/name="Protótipo"
+config/name="Jogo"
 run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 

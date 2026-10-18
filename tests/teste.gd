@@ -1,6 +1,9 @@
-# Teste automático: joga o protótipo sozinho e tira prints.
+# Teste automático: abre o jogo de verdade, depois joga a área de teste (tests/fixtures/) sozinho e tira prints.
 # Uso: godot --path . -s tests/teste.gd -- <pasta_dos_prints>
 extends SceneTree
+
+const Areas := preload("res://scripts/areas.gd")
+const AREA_TESTE := "res://tests/fixtures/area_teste.json"
 
 var main
 var out := "user://"
@@ -45,6 +48,13 @@ func _run() -> void:
 	await shot("01_titulo")
 	main.new_game()
 	await wait(1.2)
+	await shot("02_inicio_do_jogo")
+	print("jogo começa em: ", main.area_id, " missão: '", main.missao, "' tipos de inimigo: ", main.enemy_types.keys())
+	# daqui em diante, a área de teste com tudo em uso
+	main.enemy_types.merge(Areas.load_enemy_types("res://tests/fixtures/inimigos.json"))
+	main.area_id = AREA_TESTE
+	main.world.load_area(AREA_TESTE)
+	await wait(1.2)
 	await shot("02_exploracao")
 	# diálogo com a figura de teste
 	main.world.player_pos = Vector2(11.5, 6.5)
@@ -74,7 +84,7 @@ func _run() -> void:
 	main.dialogue.handle_key(KEY_E)
 	await wait(0.2)
 	await _teste_inventario()
-	main.world.player_pos = main.world.start_pos
+	main.world.player_pos = main.world._tile_center(main.world.area.pontos.inicio)
 	key(KEY_D, true)
 	await wait(0.8)
 	key(KEY_D, false)
@@ -169,7 +179,55 @@ func _run() -> void:
 	main.phone.handle_key(KEY_ENTER)
 	await wait(0.3)
 	await shot("10_mensagem")
+	main.phone.handle_key(KEY_TAB)
+	await wait(0.5)
+	await _teste_areas_e_cenas()
 	quit()
+
+
+# Sai pela saída da área, vê a cena de entrada, conversa com quem tem cena e volta.
+func _teste_areas_e_cenas() -> void:
+	var wd = main.world
+	print("salvo na área: ", JSON.parse_string(FileAccess.open(main.SAVE_PATH, FileAccess.READ).get_as_text()).get("area"))
+	wd.player_pos = Vector2(1.5, 15.3)
+	await wait(0.3)
+	await shot("11_perto_da_saida")
+	wd.player_pos = Vector2(1.5, 16.5)
+	await wait(0.6)
+	print("estado na passagem: ", main.state)
+	await wait(0.9)
+	await shot("11b_cena_de_entrada")
+	print("cena rodando: ", main.cena.running, " área: ", wd.area.get("nome"))
+	var t := 0.0
+	while main.cena.running != "" and t < 10.0:
+		await wait(0.1)
+		t += 0.1
+	print("depois da cena: estado=", main.state, " missão=", main.missao, " marca=", main.flags.get("entrou_na_sala_2", false))
+	await shot("11c_sala_2")
+	wd.player_pos = Vector2(4.6, 3.5)
+	await wait(0.3)
+	print("dica: ", wd.hint)
+	wd.handle_key(KEY_E)
+	await wait(0.6)
+	await shot("11d_cena_camera")
+	t = 0.0
+	while main.state != "dialogue" and t < 10.0:
+		await wait(0.1)
+		t += 0.1
+	await wait(0.6)
+	await shot("11e_cena_dialogo")
+	main.dialogue.handle_key(KEY_E)
+	main.dialogue.handle_key(KEY_E)
+	t = 0.0
+	while main.cena.running != "" and t < 10.0:
+		await wait(0.1)
+		t += 0.1
+	print("cena com personagem: estado=", main.state, " marca=", main.flags.get("viu_a_cena", false), " sombra oculta=", wd.npcs[0].get("oculto", false))
+	await shot("11f_depois_da_cena")
+	wd.player_pos = Vector2(1.5, 4.5)
+	await wait(1.5)
+	print("voltou para: ", wd.area.get("nome"), " em ", wd.player_pos, " estado=", main.state)
+	await shot("11g_voltou")
 
 
 # Pega item do chão, testa o inventário cheio, o baú e o curativo pelo celular.

@@ -1,0 +1,9 @@
+[
+	{"camera": [5, 3], "tempo": 0.5},
+	{"mover": "sombra", "para": [3, 3], "velocidade": 3},
+	{"mover": "branca", "para": [2, 3], "velocidade": 3},
+	{"dialogo": "res://tests/fixtures/dialogos/cena_teste.json"},
+	{"esconder": "sombra"},
+	{"camera": "branca", "tempo": 0.4},
+	{"marcar": "viu_a_cena"}
+]

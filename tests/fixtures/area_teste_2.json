@@ -1,0 +1,16 @@
+{
+	"nome": "Sala de teste 2",
+	"mapa": ["########", "#......#", "#......#", "#......#", "#......#", "########"],
+	"pontos": {"inicio": [2, 2]},
+	"npcs": [
+		{
+			"id": "sombra",
+			"nome": "Sombra",
+			"cena": "res://tests/fixtures/cenas/cena_teste.json",
+			"x": 5,
+			"y": 3
+		}
+	],
+	"saidas": [{"x": 1, "y": 4, "para": "res://tests/fixtures/area_teste.json", "ponto": "volta"}],
+	"ao_entrar": {"cena": "res://tests/fixtures/cenas/entrada_teste.json", "se_nao": "entrou_na_sala_2"}
+}

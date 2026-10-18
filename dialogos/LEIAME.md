@@ -1,6 +1,7 @@
 # Como escrever um diálogo
 
-Cada conversa é um arquivo `.json` nesta pasta, com o nome usado no mapa (`scripts/data.gd`, em `NPCS`).
+Cada conversa é um arquivo `.json` nesta pasta. O nome do arquivo é o id usado em `"dialogo"` nos personagens
+de uma área (`areas/LEIAME.md`) ou num passo de cena (`cenas/LEIAME.md`).
 O arquivo é uma lista de entradas, lidas de cima para baixo.
 
 ## Tipos de entrada
@@ -18,7 +19,7 @@ O arquivo é uma lista de entradas, lidas de cima para baixo.
 
 ## Exemplo
 
-O arquivo `npc_teste.json` usa todos os tipos: muda a conversa depois da primeira vez com `se` e `marcar`, e tem uma escolha com dois caminhos.
+O arquivo `tests/fixtures/dialogos/npc_teste.json` usa todos os tipos: muda a conversa depois da primeira vez com `se` e `marcar`, e tem uma escolha com dois caminhos.
 
 ## Dicas
 
